@@ -1,0 +1,414 @@
+<div class="shell">
+  <h1>Configuracion</h1>
+
+  @if (error()) {
+    <div class="error">{{ error() }}</div>
+  }
+  @if (notice()) {
+    <p class="muted notice">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="empty">Cargando...</div>
+  } @else {
+    <!-- ---------- Importar factura ---------- -->
+    <div class="card import-card">
+      <div class="card-head">
+        <div>
+          <h2>Importar factura en PDF</h2>
+          <span class="sub">lee los tramos, los impuestos y las fechas reales del ciclo</span>
+        </div>
+      </div>
+
+      <label class="upload">
+        <input type="file" accept="application/pdf" (change)="importPdf($event)" [disabled]="importing()" />
+        <span class="btn primary">{{ importing() ? 'Leyendo...' : 'Elegir PDF' }}</span>
+      </label>
+
+      @if (importResult(); as r) {
+        <div class="import-result">
+          <p>
+            <strong>Factura {{ r.bill.period }}</strong> &middot; {{ r.bill.readingFrom }} a
+            {{ r.bill.readingTo }} ({{ r.bill.days }} dias) &middot; {{ r.bill.kwh }} kWh
+          </p>
+          <p>
+            Total impreso <strong>{{ moneyExact(r.bill.total) }}</strong>, recalculado
+            <strong>{{ moneyExact(r.recalculatedTotal) }}</strong>
+            <span class="muted">(diferencia {{ moneyExact(r.differenceVsPrinted) }})</span>
+          </p>
+          <p class="muted">
+            Precio medio de esa factura: {{ money(r.bill.averagePricePerKwh) }} por kWh &middot;
+            {{ r.schedulesCreated.length }} cuadro(s) tarifario(s) cargado(s).
+          </p>
+          @for (w of r.warnings; track w) {
+            <p class="warn">{{ w }}</p>
+          }
+        </div>
+      }
+
+      @if (bills().length > 0) {
+        <h3 class="sub-head">Facturas cargadas</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Periodo</th>
+                <th>Medicion</th>
+                <th class="num">Dias</th>
+                <th class="num">kWh</th>
+                <th class="num">Total</th>
+                <th class="num">$/kWh</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (b of bills(); track b.id) {
+                <tr>
+                  <td>{{ b.period }}</td>
+                  <td class="muted">{{ b.readingFrom }} a {{ b.readingTo }}</td>
+                  <td class="num">{{ b.days }}</td>
+                  <td class="num">{{ b.kwh }}</td>
+                  <td class="num">{{ money(b.total) }}</td>
+                  <td class="num">{{ money(b.averagePricePerKwh) }}</td>
+                  <td class="actions">
+                    <button class="btn ghost danger" type="button" (click)="deleteBill(b)">Borrar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- ---------- Cuadro tarifario ---------- -->
+    <div class="section-title">
+      <h2>Cuadro tarifario</h2>
+      @if (tariff(); as t) {
+        <span class="muted">vigente desde {{ t.validFrom }} &middot; {{ t.source }}</span>
+      }
+    </div>
+
+    <div class="card">
+      <form class="form" (ngSubmit)="saveTariff()">
+        <div class="row">
+          <label class="field">
+            Vigente desde
+            <input type="date" [ngModel]="validFrom()" (ngModelChange)="validFrom.set($event)" name="validFrom" />
+          </label>
+
+          <label class="field">
+            Cargo fijo por dia (ARS)
+            <input
+              type="number"
+              min="0"
+              step="0.0001"
+              [ngModel]="fixedChargePerDay()"
+              (ngModelChange)="fixedChargePerDay.set(+$event)"
+              name="fixedChargePerDay"
+            />
+          </label>
+        </div>
+
+        <h3 class="sub-head">Tramos de consumo</h3>
+        <p class="hint">
+          El tope es acumulado del periodo, no el ancho del tramo: 75, 150 y 300. Dejalo vacio en el
+          ultimo para decir "de ahi en adelante".
+        </p>
+
+        <div class="rows">
+          @for (block of blocks(); track $index) {
+            <div class="row block-row">
+              <label class="field">
+                Etiqueta
+                <input
+                  [ngModel]="block.label"
+                  (ngModelChange)="patchBlock($index, { label: $event })"
+                  [name]="'blockLabel' + $index"
+                />
+              </label>
+              <label class="field">
+                Hasta (kWh)
+                <input
+                  type="number"
+                  min="1"
+                  [ngModel]="block.upToKwh"
+                  (ngModelChange)="patchBlock($index, { upToKwh: $event === null || $event === '' ? null : +$event })"
+                  [name]="'blockTop' + $index"
+                  placeholder="sin tope"
+                />
+              </label>
+              <label class="field">
+                Precio del kWh
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [ngModel]="block.pricePerKwh"
+                  (ngModelChange)="patchBlock($index, { pricePerKwh: +$event })"
+                  [name]="'blockPrice' + $index"
+                />
+              </label>
+              <button class="btn ghost danger" type="button" (click)="removeBlock($index)">Quitar</button>
+            </div>
+          }
+        </div>
+        <button class="btn" type="button" (click)="addBlock()">Agregar tramo</button>
+
+        <h3 class="sub-head">
+          Recargos sobre el importe basico
+          <span class="muted">suman {{ percent(totalSurchargePercent(), 2) }}</span>
+        </h3>
+
+        <div class="rows">
+          @for (charge of surcharges(); track $index) {
+            <div class="row">
+              <label class="field grow">
+                Concepto
+                <input
+                  [ngModel]="charge.name"
+                  (ngModelChange)="patchSurcharge($index, { name: $event })"
+                  [name]="'surName' + $index"
+                  placeholder="IVA 21% Energia"
+                />
+              </label>
+              <label class="field">
+                Porcentaje
+                <input
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  [ngModel]="charge.value"
+                  (ngModelChange)="patchSurcharge($index, { value: +$event })"
+                  [name]="'surRate' + $index"
+                />
+              </label>
+              <button class="btn ghost danger" type="button" (click)="removeSurcharge($index)">Quitar</button>
+            </div>
+          }
+        </div>
+        <button class="btn" type="button" (click)="addSurcharge()">Agregar recargo</button>
+
+        <h3 class="sub-head">Cargos fijos del periodo</h3>
+        <p class="hint">Montos que se cobran una vez por factura: alumbrado publico, renovables.</p>
+
+        <div class="rows">
+          @for (charge of periodCharges(); track $index) {
+            <div class="row">
+              <label class="field grow">
+                Concepto
+                <input
+                  [ngModel]="charge.name"
+                  (ngModelChange)="patchPeriodCharge($index, { name: $event })"
+                  [name]="'fixName' + $index"
+                  placeholder="Tasa de Alum. Pub."
+                />
+              </label>
+              <label class="field">
+                Importe (ARS)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [ngModel]="charge.value"
+                  (ngModelChange)="patchPeriodCharge($index, { value: +$event })"
+                  [name]="'fixAmount' + $index"
+                />
+              </label>
+              <button class="btn ghost danger" type="button" (click)="removePeriodCharge($index)">Quitar</button>
+            </div>
+          }
+        </div>
+        <button class="btn" type="button" (click)="addPeriodCharge()">Agregar cargo fijo</button>
+
+        <p class="hint">
+          Guardar no reescribe los cuadros anteriores: agrega uno nuevo con su vigencia, asi los
+          periodos ya costeados conservan su precio.
+        </p>
+
+        <button class="btn primary" type="submit" [disabled]="savingTariff()">
+          {{ savingTariff() ? 'Guardando...' : 'Guardar cuadro tarifario' }}
+        </button>
+      </form>
+    </div>
+
+    @if (tariffHistory().length > 0) {
+      <div class="section-title">
+        <h2>Historial de cuadros</h2>
+        <span class="muted">{{ tariffHistory().length }}</span>
+      </div>
+
+      <div class="card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Vigente desde</th>
+                <th class="num">Fijo $/dia</th>
+                <th>Tramos</th>
+                <th class="num">Recargos</th>
+                <th class="num">kWh marginal</th>
+                <th>Origen</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of tariffHistory(); track t.id) {
+                <tr>
+                  <td>{{ t.validFrom }}</td>
+                  <td class="num">{{ moneyExact(t.fixedChargePerDay) }}</td>
+                  <td class="muted">
+                    @for (b of t.blocks; track b.order) {
+                      <span class="chip">{{ b.upToKwh ?? '+' }}: {{ money(b.pricePerKwh) }}</span>
+                    }
+                  </td>
+                  <td class="num">{{ percent(t.totalSurchargeRate * 100, 2) }}</td>
+                  <td class="num">{{ money(t.marginalPricePerKwh) }}</td>
+                  <td class="muted">{{ t.source }}</td>
+                  <td class="actions">
+                    <button class="btn ghost" type="button" (click)="editSchedule(t)">Editar</button>
+                    <button class="btn ghost danger" type="button" (click)="deleteSchedule(t)">Borrar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ---------- Dispositivos ---------- -->
+    <div class="section-title">
+      <h2>{{ editingId() ? 'Editar dispositivo' : 'Agregar dispositivo' }}</h2>
+      @if (editingId()) {
+        <button class="btn ghost" type="button" (click)="startNewDevice()">Cancelar</button>
+      }
+    </div>
+
+    <div class="card">
+      <form class="form" (ngSubmit)="saveDevice()">
+        <div class="row">
+          <label class="field grow">
+            Nombre
+            <input
+              [ngModel]="form().name"
+              (ngModelChange)="patchForm({ name: $event })"
+              name="name"
+              placeholder="Heladera"
+              required
+            />
+          </label>
+
+          <label class="field grow">
+            Topic MQTT
+            <input
+              [ngModel]="form().mqttTopic"
+              (ngModelChange)="patchForm({ mqttTopic: $event })"
+              name="topic"
+              placeholder="sonoff-heladera"
+              pattern="[A-Za-z0-9_\-]+"
+              required
+            />
+          </label>
+        </div>
+
+        <div class="row">
+          <label class="field grow">
+            Ubicacion
+            <input
+              [ngModel]="form().location"
+              (ngModelChange)="patchForm({ location: $event })"
+              name="location"
+              placeholder="Cocina"
+            />
+          </label>
+
+          <label class="field">
+            Potencia nominal (W)
+            <input
+              type="number"
+              min="0"
+              max="30000"
+              [ngModel]="form().nominalWatts"
+              (ngModelChange)="patchForm({ nominalWatts: +$event })"
+              name="nominalWatts"
+            />
+          </label>
+
+          <label class="field">
+            Tipo
+            <select [ngModel]="form().type" (ngModelChange)="patchForm({ type: $event })" name="type">
+              @for (type of deviceTypes; track type) {
+                <option [value]="type">{{ type }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        @if (editingId()) {
+          <label class="check">
+            <input
+              type="checkbox"
+              [ngModel]="form().isActive"
+              (ngModelChange)="patchForm({ isActive: $event })"
+              name="isActive"
+            />
+            Activo (si se desactiva, se descartan sus lecturas nuevas)
+          </label>
+        }
+
+        <button class="btn primary" type="submit" [disabled]="savingDevice()">
+          {{ savingDevice() ? 'Guardando...' : editingId() ? 'Guardar cambios' : 'Agregar' }}
+        </button>
+      </form>
+    </div>
+
+    <div class="section-title">
+      <h2>Dispositivos registrados</h2>
+      <span class="muted">{{ devices().length }}</span>
+    </div>
+
+    <div class="card">
+      @if (devices().length === 0) {
+        <div class="empty">Todavia no hay dispositivos registrados.</div>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Topic</th>
+                <th>Ubicacion</th>
+                <th>Tipo</th>
+                <th class="num">Nominal</th>
+                <th class="num">Ahora</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of devices(); track d.id) {
+                <tr [class.inactive]="!d.isActive">
+                  <td>
+                    <a [routerLink]="['/dispositivo', d.id]">{{ d.name }}</a>
+                    @if (!d.isActive) {
+                      <span class="badge">inactivo</span>
+                    }
+                  </td>
+                  <td><code>{{ d.mqttTopic }}</code></td>
+                  <td>{{ d.location }}</td>
+                  <td>{{ d.type }}</td>
+                  <td class="num">{{ d.nominalWatts }} W</td>
+                  <td class="num">{{ watts(d.currentWatts) }}</td>
+                  <td class="actions">
+                    <button class="btn ghost" type="button" (click)="startEdit(d)">Editar</button>
+                    <button class="btn ghost danger" type="button" (click)="deleteDevice(d)">Borrar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

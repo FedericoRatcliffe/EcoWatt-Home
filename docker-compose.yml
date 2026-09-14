@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ecowatt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ecowatt
+      POSTGRES_USER: ecowatt
+      POSTGRES_PASSWORD: ecowatt
+      # Postgres guarda timestamptz en UTC; el timezone de sesion no afecta los agregados
+      # porque las consultas hacen AT TIME ZONE explicito.
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecowatt -d ecowatt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: ecowatt-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./docker/mosquitto/config:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+
+  api:
+    build:
+      context: .
+      dockerfile: EcoWattCasa.API/Dockerfile
+    container_name: ecowatt-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=ecowatt;Username=ecowatt;Password=ecowatt"
+      Mqtt__Host: "mosquitto"
+      Cors__AllowedOrigins__0: "http://localhost:4200"
+      Cors__AllowedOrigins__1: "http://localhost:8081"
+    ports:
+      - "5080:8080"
+
+  frontend:
+    build:
+      context: ./ecowatt-frontend
+      dockerfile: Dockerfile
+    container_name: ecowatt-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8081:80"
+
+  # Publisher simulado. Perfil aparte: cuando llegue el hardware real se deja de levantar.
+  mock:
+    build:
+      context: .
+      dockerfile: EcoWattCasa.MockDevices/Dockerfile
+    container_name: ecowatt-mock
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_started
+    environment:
+      MQTT_HOST: "mosquitto"
+    profiles:
+      - mock
+
+volumes:
+  postgres-data:
+  mosquitto-data:
+  mosquitto-log:

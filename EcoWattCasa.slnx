@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="EcoWattCasa.API/EcoWattCasa.API.csproj" />
+  <Project Path="EcoWattCasa.Application/EcoWattCasa.Application.csproj" />
+  <Project Path="EcoWattCasa.Domain/EcoWattCasa.Domain.csproj" />
+  <Project Path="EcoWattCasa.Infrastructure/EcoWattCasa.Infrastructure.csproj" />
+  <Project Path="EcoWattCasa.MockDevices/EcoWattCasa.MockDevices.csproj" />
+</Solution>

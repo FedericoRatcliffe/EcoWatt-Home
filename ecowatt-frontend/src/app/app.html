@@ -1,0 +1,18 @@
+<header class="topbar">
+  <span class="brand">
+    EcoWatt Casa
+    <small>monitoreo energetico</small>
+  </span>
+
+  <span class="live" [class]="realtime.status()">
+    <span class="dot" aria-hidden="true"></span>
+    {{ realtime.status() }}
+  </span>
+
+  <nav>
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+    <a routerLink="/config" routerLinkActive="active">Configuracion</a>
+  </nav>
+</header>
+
+<router-outlet />

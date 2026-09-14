@@ -1,0 +1,22 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Angular / Node
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+
+# Entorno local
+*.local.json
+appsettings.Local.json
+.env
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json

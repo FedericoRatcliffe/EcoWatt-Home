@@ -1,0 +1,147 @@
+@use 'variables' as *;
+
+h1 {
+  margin-bottom: 1.25rem;
+}
+
+.notice {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.82rem;
+}
+
+// ================================
+// Import de PDF
+// ================================
+
+.import-card {
+  margin-bottom: 1.25rem;
+}
+
+.upload {
+  display: inline-block;
+  margin-top: 0.25rem;
+  cursor: pointer;
+
+  input[type='file'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+
+  .btn {
+    display: inline-block;
+  }
+}
+
+.import-result {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: $radius-md;
+  background: rgba($blue-600, 0.04);
+  border: 1px solid $border-soft;
+
+  p {
+    margin: 0 0 0.25rem;
+    font-size: 0.82rem;
+  }
+
+  strong {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.warn {
+  color: $red-700;
+}
+
+// ================================
+// Formularios
+// ================================
+
+.form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.form .btn {
+  justify-self: start;
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  .field {
+    min-width: 8rem;
+  }
+
+  .field.grow {
+    flex: 1 1 12rem;
+  }
+}
+
+.rows {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.block-row .field:first-child {
+  flex: 1 1 11rem;
+}
+
+.hint {
+  margin: 0;
+  color: $text-faint;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: $text-soft;
+}
+
+.sub-head {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-faint;
+
+  .muted {
+    text-transform: none;
+    letter-spacing: 0;
+    margin-inline-start: 0.5rem;
+    font-weight: 500;
+  }
+}
+
+.chip {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: $radius-pill;
+  background: rgba($blue-600, 0.07);
+  border: 1px solid $border-soft;
+  color: $text-soft;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+tr.inactive td {
+  opacity: 0.55;
+}
+
+td.actions {
+  text-align: right;
+  white-space: nowrap;
+}

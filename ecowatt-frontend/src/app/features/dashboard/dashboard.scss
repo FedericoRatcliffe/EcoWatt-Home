@@ -1,0 +1,182 @@
+@use 'variables' as *;
+
+.month-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.month-picker .btn {
+  padding: 0.4rem 0.65rem;
+  line-height: 1;
+}
+
+.month-name {
+  min-width: 9.5rem;
+  text-align: center;
+  color: $text-strong;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+// ================================
+// Card principal: la factura del periodo
+// ================================
+
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  // Banda de marca arriba, como los paneles destacados del dashboard de la Ticketera.
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: $grad-bar;
+  }
+}
+
+.grid.stats-inner {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  height: 100%;
+  align-content: center;
+  gap: 1.25rem;
+}
+
+.charts {
+  margin-top: 1rem;
+}
+
+// El costo se parte en lo que depende del consumo y lo que no.
+.split {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid $border-soft;
+}
+
+.split > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.split-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: $text-faint;
+}
+
+.split-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: $text-strong;
+  font-variant-numeric: tabular-nums;
+}
+
+// ================================
+// Card de dispositivo
+// ================================
+
+.device-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  color: inherit;
+  transition: border-color $t-medium, box-shadow $t-medium, transform $t-fast;
+
+  &:hover {
+    border-color: rgba($blue-500, 0.4);
+    box-shadow: $shadow-hover;
+    transform: translateY(-1px);
+  }
+}
+
+.device-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.device-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: $text-strong;
+  letter-spacing: -0.01em;
+}
+
+.device-loc {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.device-now {
+  font-size: 0.9rem;
+  color: $blue-600;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.5rem;
+}
+
+.device-cost {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: $text-strong;
+  margin-top: 0.1rem;
+}
+
+.share {
+  margin-top: 0.85rem;
+  height: 5px;
+  border-radius: $radius-pill;
+  background: rgba($blue-600, 0.09);
+  overflow: hidden;
+}
+
+.share span {
+  display: block;
+  height: 100%;
+  border-radius: $radius-pill;
+  background: $grad-bar;
+}
+
+// ================================
+// Desglose de la factura
+// ================================
+
+table.bill td {
+  padding: 0.55rem 0.85rem;
+}
+
+table.bill tr.subtotal td,
+table.bill tr.total td {
+  font-weight: 700;
+  border-top: 1px solid $border-default;
+  border-bottom: none;
+}
+
+table.bill tr.total td {
+  font-size: 0.95rem;
+  color: $blue-700;
+}
+
+.footnote {
+  margin: 0.85rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: $text-faint;
+}

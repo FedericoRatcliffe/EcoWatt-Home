@@ -1,0 +1,104 @@
+// ===========================
+// Tokens de EcoWatt Casa.
+// Tomados del sistema de la Ticketera (contexto "dashboard light"), para que las dos apps
+// se vean de la misma familia. Se porta solo lo que esta app usa.
+// ===========================
+
+// ===========================
+// Blues (base de marca)
+// ===========================
+$blue-400: #47bcff;
+$blue-500: #21a9ff;
+$blue-600: #0088d4;
+$blue-700: #006bb0; // hover/dark sobre $blue-600
+
+// ===========================
+// Superficies (dashboard light)
+// ===========================
+$surface:     #ffffff; // fondo de cards y paneles
+$surface-alt: #f7fafd; // headers de tabla (tinte cyan)
+$bg-page:     #eef3f8; // fondo de pagina
+
+// ===========================
+// Texto
+// ===========================
+$text-strong:      #0d1b2a; // titulos, valores principales
+$text-soft:        #4a6a85; // subtitulos, meta
+$text-faint:       #728599; // labels de seccion, sub-meta
+$text-placeholder: #a0b4c5;
+
+// ===========================
+// Bordes traslucidos sobre $blue-600
+// ===========================
+$border-soft:    rgba($blue-600, 0.12); // divisores sutiles
+$border-default: rgba($blue-600, 0.15); // borde de card
+$border-strong:  rgba($blue-600, 0.25); // borde marcado
+
+// ===========================
+// Status / semantic
+// ===========================
+$green:     #22d09a;
+$green-700: #0a9469; // texto de tendencia a la baja (gasto que baja = bien)
+$yellow:    #f5b800;
+$amber:     #f59e0b;
+$red:       #f16c6c;
+$red-500:   #ef4444;
+$red-700:   #c93030;
+$slate-400: #94a3b8;
+
+// ===========================
+// Serie de datos de los graficos.
+// $blue-600 pasa los seis chequeos de la paleta de dataviz sobre surface blanco
+// (banda de luminosidad, piso de croma, contraste >= 3:1).
+// ===========================
+$chart-series:      $blue-600;
+$chart-series-soft: rgba($blue-600, 0.14);
+$chart-grid:        rgba($blue-600, 0.09);
+$chart-baseline:    rgba($blue-600, 0.22);
+
+// ===========================
+// Radios
+// ===========================
+$radius-sm:   8px;
+$radius-md:   10px;
+$radius-lg:   14px;
+$radius-xl:   16px;
+$radius-pill: 99px;
+
+// ===========================
+// Layout
+// ===========================
+$page-max-w: 1180px;
+
+// Manrope variable (200..800), cargada desde Google Fonts en index.html.
+$font-dashboard: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+// ===========================
+// Gradientes
+// ===========================
+$grad-primary: linear-gradient(135deg, $blue-600, $blue-500);
+$grad-bar:     linear-gradient(90deg, $blue-600, $blue-500);
+
+// ===========================
+// Sombras (tinte azul, no gris neutro)
+// ===========================
+$shadow-soft:          0 1px 3px rgba(0, 40, 80, 0.05);
+$shadow-card:          0 2px 8px rgba(0, 40, 80, 0.06), 0 8px 24px rgba(0, 40, 80, 0.06);
+$shadow-hover:         0 6px 20px rgba(0, 40, 80, 0.1);
+$shadow-primary:       0 2px 12px rgba(0, 136, 212, 0.32);
+$shadow-primary-hover: 0 4px 20px rgba(0, 136, 212, 0.45);
+
+// ===========================
+// Breakpoints
+// ===========================
+$bp-sm: 480px;
+$bp-md: 640px;
+$bp-lg: 1024px;
+
+// ===========================
+// Duraciones de transicion
+// ===========================
+$t-fast:   0.15s; // micro-interacciones, press de boton
+$t-base:   0.18s; // hover/focus estandar
+$t-medium: 0.2s;  // hover de cards
+$t-slow:   0.28s; // transiciones de layout

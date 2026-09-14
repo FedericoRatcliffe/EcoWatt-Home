@@ -1,0 +1,359 @@
+<div class="shell">
+  @if (error()) {
+    <div class="error">{{ error() }}</div>
+  }
+
+  <!-- Una sola fila de filtros arriba de todo lo que alcanzan. -->
+  <div class="filters">
+    <span class="segmented">
+      <button class="btn" type="button" [class.active]="useCycle()" (click)="setMode(true)">
+        Ciclo de factura
+      </button>
+      <button class="btn" type="button" [class.active]="!useCycle()" (click)="setMode(false)">
+        Mes calendario
+      </button>
+    </span>
+
+    @if (useCycle()) {
+      <span class="month-picker">
+        <button class="btn" type="button" (click)="shiftPeriod(-1)" aria-label="Periodo anterior">&lsaquo;</button>
+        <span class="month-name">{{ period()?.label ?? '...' }}</span>
+        <button
+          class="btn"
+          type="button"
+          (click)="shiftPeriod(1)"
+          [disabled]="offset() >= 0"
+          aria-label="Periodo siguiente"
+        >&rsaquo;</button>
+      </span>
+    }
+
+    <label class="field">
+      Dia
+      <input type="date" [value]="date()" (change)="changeDate($any($event.target).value)" />
+    </label>
+
+    <button class="btn" type="button" (click)="goToToday()" [disabled]="isToday() && offset() === 0">Hoy</button>
+    <button class="btn" type="button" (click)="reload()">Actualizar</button>
+  </div>
+
+  @if (loading()) {
+    <div class="empty">Cargando...</div>
+  } @else {
+    <div [class.refreshing]="refreshing()">
+      <!-- Cifra principal: la factura del periodo. -->
+      <section class="grid halves">
+        <div class="card hero-card">
+          <div class="stat-label">
+            {{ useCycle() ? 'Factura estimada' : 'Costo' }} &middot; {{ period()?.label }}
+          </div>
+          <div class="hero">{{ money(bill()?.total) }}</div>
+          <div class="delta" [class]="trend().kind">
+            @if (trend().arrow) {
+              <span aria-hidden="true">{{ trend().arrow }}</span>
+            }
+            <span>{{ trend().text }}</span>
+          </div>
+
+          @if (bill(); as b) {
+            <!-- El costo se parte en lo que depende del consumo y lo que no. -->
+            <div class="split">
+              <span>
+                <span class="split-label">Energia</span>
+                <span class="split-value">{{ money(b.energyCost) }}</span>
+              </span>
+              <span>
+                <span class="split-label">Cargos fijos</span>
+                <span class="split-value">{{ money(b.fixedCost) }}</span>
+              </span>
+              <span>
+                <span class="split-label">Consumo</span>
+                <span class="split-value">{{ kwh(b.totalKwh) }}</span>
+              </span>
+            </div>
+          }
+
+          @if (period()?.projection; as pr) {
+            <div class="stat-sub">
+              Dia {{ pr.elapsedDays }} de {{ pr.totalDays }} &middot; si sigue este ritmo cierra en
+              <strong>{{ money(pr.projectedCost) }}</strong> ({{ kwh(pr.projectedKwh) }})
+            </div>
+          }
+
+          @if (period(); as p) {
+            <div class="stat-sub">
+              @if (p.comparisonIsPartial) {
+                Ciclo anterior: {{ money(p.previousPeriodCostToDate) }} a esta altura,
+                {{ money(p.previousPeriodCost) }} al cierre
+              } @else {
+                Periodo anterior: {{ money(p.previousPeriodCost) }}
+              }
+            </div>
+          }
+        </div>
+
+        <div class="card">
+          <div class="grid stats-inner">
+            <div>
+              <div class="stat-label">Consumo ahora</div>
+              <div class="stat-value">{{ watts(totalWattsNow()) }}</div>
+              <div class="stat-sub">
+                <span class="live" [class]="realtime.status()">
+                  <span class="dot" aria-hidden="true"></span>
+                  tiempo real: {{ realtime.status() }}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div class="stat-label">Costo del dia</div>
+              <div class="stat-value">{{ moneySmart(daily()?.totalCost) }}</div>
+              <div class="stat-sub">{{ kwh(daily()?.totalKwh) }}</div>
+            </div>
+            <div>
+              <!-- Con tarifa por tramos no hay un precio del kWh: hay uno marginal. -->
+              <div class="stat-label">Cada kWh extra</div>
+              <div class="stat-value">{{ money(bill()?.marginalPricePerKwh) }}</div>
+              <div class="stat-sub">
+                {{ averagePrice().label }} {{ money(averagePrice().value) }} &middot;
+                <a routerLink="/config">tarifa</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Desglose de la factura, igual que el papel -->
+      @if (bill(); as b) {
+        <div class="section-title">
+          <h2>Desglose de la factura</h2>
+          <button class="btn ghost" type="button" (click)="showBillDetail.set(!showBillDetail())">
+            {{ showBillDetail() ? 'Ocultar' : 'Ver detalle' }}
+          </button>
+        </div>
+
+        @if (showBillDetail()) {
+          <div class="card">
+            <table class="bill">
+              <tbody>
+                <tr>
+                  <td>Cargo fijo</td>
+                  <td class="muted">{{ b.days }} dias</td>
+                  <td class="num">{{ money(b.fixedCharge) }}</td>
+                </tr>
+                @for (block of b.blocks; track block.label) {
+                  <tr>
+                    <td>{{ block.label }}</td>
+                    <td class="muted">{{ block.kwh.toFixed(1) }} kWh x {{ money(block.pricePerKwh) }}</td>
+                    <td class="num">{{ money(block.amount) }}</td>
+                  </tr>
+                }
+                <tr class="subtotal">
+                  <td>Importe basico</td>
+                  <td></td>
+                  <td class="num">{{ money(b.basicAmount) }}</td>
+                </tr>
+                @for (charge of b.surcharges; track charge.name) {
+                  <tr>
+                    <td>{{ charge.name }}</td>
+                    <td class="muted">{{ percent(charge.rate! * 100, 2) }} del basico</td>
+                    <td class="num">{{ money(charge.amount) }}</td>
+                  </tr>
+                }
+                @for (charge of b.periodCharges; track charge.name) {
+                  <tr>
+                    <td>{{ charge.name }}</td>
+                    <td class="muted">monto fijo del periodo</td>
+                    <td class="num">{{ money(charge.amount) }}</td>
+                  </tr>
+                }
+                <tr class="total">
+                  <td>Total</td>
+                  <td></td>
+                  <td class="num">{{ money(b.total) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        }
+      }
+
+      <!-- Cards por dispositivo -->
+      <div class="section-title">
+        <h2>Dispositivos</h2>
+        <span class="muted">parte de la factura del periodo, segun sus kWh</span>
+      </div>
+
+      @if (cards().length === 0) {
+        <div class="card empty">
+          Todavia no hay dispositivos. Levanta el mock publisher o agregalos desde
+          <a routerLink="/config">Configuracion</a>.
+        </div>
+      } @else {
+        <section class="grid cards">
+          @for (device of cards(); track device.deviceId) {
+            <a class="card device-card" [routerLink]="['/dispositivo', device.deviceId]">
+              <div class="device-head">
+                <span class="device-name">{{ device.name }}</span>
+                <span class="muted device-loc">{{ device.location }}</span>
+              </div>
+
+              <div class="device-now">{{ watts(device.currentWatts) }}</div>
+
+              <div class="device-cost">{{ moneySmart(device.cost) }}</div>
+              <div class="stat-sub">
+                {{ kwh(device.kwh) }} &middot; {{ percent(device.sharePercent, 0) }} de lo medido
+              </div>
+
+              <!-- Barra de participacion: refuerza el numero, no lo reemplaza. -->
+              <div class="share" role="presentation">
+                <span [style.width.%]="device.sharePercent"></span>
+              </div>
+            </a>
+          }
+        </section>
+
+        @if (bill(); as b) {
+          <p class="muted footnote">
+            Las cards suman {{ money(b.energyCost) }} de energia. Los {{ money(b.fixedCost) }} de
+            cargo fijo, alumbrado publico y renovables no se reparten: se pagan aunque no consumas
+            nada.
+          </p>
+        }
+      }
+
+      <!-- Graficos -->
+      <section class="grid halves charts">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Costo por dispositivo</h2>
+              <span class="sub">{{ period()?.label }}</span>
+            </div>
+            <button class="btn ghost" type="button" (click)="showDeviceTable.set(!showDeviceTable())">
+              {{ showDeviceTable() ? 'Ver grafico' : 'Ver tabla' }}
+            </button>
+          </div>
+
+          @if (showDeviceTable()) {
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Dispositivo</th>
+                    <th class="num">kWh</th>
+                    <th class="num">Costo</th>
+                    <th class="num">Parte</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (d of period()?.devices ?? []; track d.deviceId) {
+                    <tr>
+                      <td>{{ d.name }}</td>
+                      <td class="num">{{ kwh(d.kwh) }}</td>
+                      <td class="num">{{ money(d.cost) }}</td>
+                      <td class="num">{{ percent(d.sharePercent, 0) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else if ((period()?.devices ?? []).length === 0) {
+            <div class="empty">Sin datos del periodo todavia.</div>
+          } @else {
+            <app-chart [option]="deviceCostOption()" [height]="260" />
+          }
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Costo por dia</h2>
+              <span class="sub">{{ period()?.label }}</span>
+            </div>
+            <button class="btn ghost" type="button" (click)="showDailyTable.set(!showDailyTable())">
+              {{ showDailyTable() ? 'Ver grafico' : 'Ver tabla' }}
+            </button>
+          </div>
+
+          @if (showDailyTable()) {
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Dia</th>
+                    <th class="num">kWh</th>
+                    <th class="num">Costo</th>
+                    <th class="num">Prom. casa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of period()?.daily ?? []; track p.bucketLocal) {
+                    <tr>
+                      <td>{{ dayText(p.bucketLocal) }}</td>
+                      <td class="num">{{ kwh(p.kwh) }}</td>
+                      <td class="num">{{ moneySmart(p.cost) }}</td>
+                      <td class="num">{{ watts(p.avgWatts) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else if ((period()?.daily ?? []).length === 0) {
+            <div class="empty">Sin datos del periodo todavia.</div>
+          } @else {
+            <app-chart [option]="dailyCostOption()" [height]="260" />
+          }
+        </div>
+      </section>
+
+      <section class="grid charts">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Consumo de la casa por hora</h2>
+              <span class="sub">{{ date() }}</span>
+            </div>
+            <button class="btn ghost" type="button" (click)="showHourlyTable.set(!showHourlyTable())">
+              {{ showHourlyTable() ? 'Ver grafico' : 'Ver tabla' }}
+            </button>
+          </div>
+
+          @if (showHourlyTable()) {
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Hora</th>
+                    <th class="num">kWh</th>
+                    <th class="num">Costo</th>
+                    <th class="num">Prom. casa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of daily()?.hourly ?? []; track p.bucketLocal) {
+                    <tr>
+                      <td>{{ hourText(p.bucketLocal) }}</td>
+                      <td class="num">{{ kwh(p.kwh) }}</td>
+                      <td class="num">{{ moneySmart(p.cost) }}</td>
+                      <td class="num">{{ watts(p.avgWatts) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else if ((daily()?.hourly ?? []).length === 0) {
+            <div class="empty">Todavia no llegaron lecturas de este dia.</div>
+          } @else {
+            <app-chart [option]="hourlyOption()" [height]="260" />
+          }
+        </div>
+      </section>
+
+      @if (cycleInfo(); as c) {
+        <p class="muted footnote">
+          Ciclo de {{ c.cycleDays }} dias anclado en {{ c.anchor }} &mdash; {{ c.source }}.
+        </p>
+      }
+    </div>
+  }
+</div>

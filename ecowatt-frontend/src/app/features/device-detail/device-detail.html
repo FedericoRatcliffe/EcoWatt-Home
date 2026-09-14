@@ -1,0 +1,115 @@
+<div class="shell">
+  <a class="back" routerLink="/">&lsaquo; Volver al dashboard</a>
+
+  @if (error()) {
+    <div class="error">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="empty">Cargando...</div>
+  } @else if (device(); as d) {
+    <header class="device-header">
+      <div>
+        <h1>{{ d.name }}</h1>
+        <div class="muted">
+          {{ d.location }} &middot; <code>{{ d.mqttTopic }}</code> &middot; {{ d.type }}
+          @if (!d.isActive) {
+            <span class="badge">inactivo</span>
+          }
+        </div>
+      </div>
+
+      <!-- Comandos Tasmota: cmnd/{topic}/POWER -->
+      <div class="power">
+        <button class="btn primary" type="button" (click)="setPower(true)">Encender</button>
+        <button class="btn danger" type="button" (click)="setPower(false)">Apagar</button>
+      </div>
+    </header>
+
+    @if (notice()) {
+      <p class="muted notice">{{ notice() }}</p>
+    }
+
+    <section class="grid stats">
+      <div class="card">
+        <div class="stat-label">Consumo ahora</div>
+        <div class="stat-value">{{ watts(currentWatts()) }}</div>
+        <div class="stat-sub">
+          <span class="live" [class]="realtime.status()">
+            <span class="dot" aria-hidden="true"></span>
+            {{ realtime.status() }}
+          </span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="stat-label">Consumo del periodo</div>
+        <div class="stat-value">{{ kwh(history()?.totalKwh) }}</div>
+        <div class="stat-sub">nominal declarado: {{ d.nominalWatts }} W</div>
+      </div>
+      <div class="card">
+        <div class="stat-label">Costo del periodo</div>
+        <div class="stat-value">{{ moneySmart(history()?.totalCost) }}</div>
+        <div class="stat-sub">con la tarifa vigente de cada dia</div>
+      </div>
+    </section>
+
+    <div class="card chart-card" [class.refreshing]="refreshing()">
+      <div class="card-head">
+        <div>
+          <h2>Historial de consumo</h2>
+          <span class="sub">{{ byHour() ? 'por hora' : 'por dia' }}</span>
+        </div>
+
+        <div class="head-controls">
+          <!-- Un solo control de rango, arriba del grafico que alcanza. -->
+          <span class="segmented">
+            @for (range of ranges; track range.hours) {
+              <button
+                class="btn"
+                type="button"
+                [class.active]="hours() === range.hours"
+                (click)="setRange(range.hours)"
+              >
+                {{ range.label }}
+              </button>
+            }
+          </span>
+          <button class="btn ghost" type="button" (click)="showTable.set(!showTable())">
+            {{ showTable() ? 'Ver grafico' : 'Ver tabla' }}
+          </button>
+        </div>
+      </div>
+
+      @if (showTable()) {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>{{ byHour() ? 'Hora' : 'Dia' }}</th>
+                <th class="num">kWh</th>
+                <th class="num">Costo</th>
+                <th class="num">Promedio</th>
+                <th class="num">Pico</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of history()?.points ?? []; track p.bucketLocal) {
+                <tr>
+                  <td>{{ bucketLabel()(p.bucketLocal) }}</td>
+                  <td class="num">{{ kwh(p.kwh) }}</td>
+                  <td class="num">{{ moneySmart(p.cost) }}</td>
+                  <td class="num">{{ watts(p.avgWatts) }}</td>
+                  <td class="num">{{ watts(p.maxWatts) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else if ((history()?.points ?? []).length === 0) {
+        <div class="empty">Sin lecturas en este periodo.</div>
+      } @else {
+        <app-chart [option]="historyOption()" [height]="320" />
+      }
+    </div>
+  }
+</div>

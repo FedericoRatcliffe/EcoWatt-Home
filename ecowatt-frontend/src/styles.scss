@@ -1,0 +1,546 @@
+@use 'variables' as *;
+
+// ===========================
+// EcoWatt Casa - base y componentes compartidos.
+// Mismo lenguaje visual que el dashboard de la Ticketera: superficies blancas sobre fondo
+// azulado, bordes traslucidos derivados de $blue-600, Manrope y sombras con tinte azul.
+// ===========================
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: $bg-page;
+  color: $text-strong;
+  font-family: $font-dashboard;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  // Antialiasing limpio para Manrope en Mac/iOS y geometric precision en Windows/Linux.
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+// ===========================
+// Accesibilidad: respetar prefers-reduced-motion (WCAG 2.3.3)
+// ===========================
+// 0.01ms y no 0, para que cualquier animationend/transitionend siga disparandose.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: $text-strong;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 0.97rem;
+  font-weight: 700;
+}
+
+a {
+  color: $blue-600;
+  text-decoration: none;
+  transition: color $t-base;
+
+  &:hover {
+    color: $blue-700;
+  }
+}
+
+// ===========================
+// Layout
+// ===========================
+
+.shell {
+  max-width: $page-max-w;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1.5rem;
+  background: $surface;
+  border-bottom: 1px solid $border-soft;
+  box-shadow: $shadow-soft;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+    color: $text-strong;
+
+    small {
+      color: $text-faint;
+      font-weight: 500;
+      font-size: 0.75rem;
+      letter-spacing: 0;
+    }
+  }
+
+  nav {
+    display: flex;
+    gap: 0.25rem;
+    margin-inline-start: auto;
+    flex-wrap: wrap;
+  }
+
+  nav a {
+    padding: 0.4rem 0.85rem;
+    border-radius: $radius-pill;
+    color: $text-soft;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: background $t-base, color $t-base;
+
+    &:hover {
+      background: rgba($blue-600, 0.05);
+      color: $blue-600;
+    }
+
+    &.active {
+      background: $grad-primary;
+      color: $surface;
+      box-shadow: $shadow-primary;
+    }
+  }
+}
+
+// Estado de la conexion en vivo: punto + texto, nunca solo color.
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: $text-soft;
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $slate-400;
+  }
+
+  &.conectado .dot {
+    background: $green;
+    box-shadow: 0 0 0 3px rgba($green, 0.18);
+  }
+
+  &.conectando .dot {
+    background: $amber;
+  }
+
+  &.desconectado .dot {
+    background: $red;
+  }
+}
+
+// ===========================
+// Cards
+// ===========================
+
+.card {
+  background: $surface;
+  border: 1px solid $border-default;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-card;
+  padding: 1.25rem;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+
+  .sub {
+    color: $text-faint;
+    font-size: 0.76rem;
+    font-weight: 500;
+  }
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.grid.cards {
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.grid.halves {
+  grid-template-columns: 1fr 1fr;
+
+  @media (max-width: $bp-lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin: 1.75rem 0 0.85rem;
+
+  h2 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: $text-faint;
+  }
+}
+
+// ===========================
+// Cifras
+// ===========================
+
+.hero {
+  font-size: 2.9rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: $text-strong;
+  // Cifras proporcionales: tabular-nums afloja los numeros grandes.
+}
+
+.stat-label {
+  color: $text-soft;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
+
+.stat-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: $text-strong;
+}
+
+.stat-sub {
+  color: $text-faint;
+  font-size: 0.76rem;
+  font-weight: 500;
+  margin-top: 0.3rem;
+}
+
+// Delta con flecha + texto: el color no viaja solo.
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  &.baja {
+    color: $green-700;
+  }
+
+  &.sube {
+    color: $red-700;
+  }
+
+  &.igual {
+    color: $text-soft;
+  }
+}
+
+// ===========================
+// Controles
+// ===========================
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.btn {
+  appearance: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9px;
+  border: 1px solid $border-default;
+  background: $surface;
+  color: $text-soft;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color $t-base, background $t-base, border-color $t-base, box-shadow $t-base,
+    transform $t-fast;
+
+  &:hover:not(:disabled) {
+    color: $blue-600;
+    border-color: rgba($blue-500, 0.4);
+    background: rgba($blue-600, 0.04);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &.primary {
+    background: $grad-primary;
+    border-color: transparent;
+    color: $surface;
+    box-shadow: $shadow-primary;
+
+    &:hover:not(:disabled) {
+      color: $surface;
+      background: $grad-primary;
+      box-shadow: $shadow-primary-hover;
+    }
+  }
+
+  &.danger {
+    color: $red-700;
+    border-color: rgba($red-500, 0.3);
+
+    &:hover:not(:disabled) {
+      color: $red-700;
+      border-color: rgba($red-500, 0.5);
+      background: rgba($red-500, 0.06);
+    }
+  }
+
+  &.active {
+    background: $grad-primary;
+    border-color: transparent;
+    color: $surface;
+    box-shadow: $shadow-primary;
+  }
+
+  &.ghost {
+    border-color: transparent;
+    background: transparent;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+
+    &:hover:not(:disabled) {
+      background: rgba($blue-600, 0.05);
+      color: $blue-600;
+    }
+
+    &.danger:hover:not(:disabled) {
+      background: rgba($red-500, 0.06);
+      color: $red-700;
+    }
+  }
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  background: rgba($blue-600, 0.05);
+  border: 1px solid $border-soft;
+  border-radius: $radius-pill;
+
+  .btn {
+    border: none;
+    background: transparent;
+    border-radius: $radius-pill;
+    padding: 0.35rem 0.85rem;
+    box-shadow: none;
+
+    &.active {
+      background: $grad-primary;
+      box-shadow: $shadow-primary;
+    }
+  }
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: $text-faint;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input,
+select {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 9px;
+  border: 1px solid $border-default;
+  background: $surface;
+  color: $text-strong;
+  transition: border-color $t-base, box-shadow $t-base;
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: rgba($blue-500, 0.4);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $blue-500;
+    box-shadow: 0 0 0 3px rgba($blue-500, 0.16);
+  }
+}
+
+input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  accent-color: $blue-600;
+}
+
+// ===========================
+// Tablas (la vista de tabla de cada grafico)
+// ===========================
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+thead th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $text-soft;
+  background: rgba($blue-600, 0.05);
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid $border-soft;
+}
+
+tbody td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid $border-soft;
+  color: $text-strong;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover td {
+  background: rgba($blue-600, 0.025);
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+// Tope alto: una tabla de ~10 filas entra entera sin scroll propio dentro de la card.
+.table-scroll {
+  max-height: 520px;
+  overflow: auto;
+  border-radius: $radius-md;
+  border: 1px solid $border-soft;
+}
+
+code {
+  background: rgba($blue-600, 0.06);
+  border: 1px solid $border-soft;
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: $text-soft;
+}
+
+// ===========================
+// Estados
+// ===========================
+
+.muted {
+  color: $text-faint;
+}
+
+.error {
+  background: $surface;
+  border: 1px solid rgba($red-500, 0.25);
+  border-left: 3px solid $red-500;
+  border-radius: $radius-md;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1.25rem;
+  color: $text-strong;
+  font-size: 0.85rem;
+  box-shadow: $shadow-soft;
+}
+
+// Refetch: se mantiene el render anterior atenuado, sin salto de layout.
+.refreshing {
+  opacity: 0.55;
+  transition: opacity $t-base;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: $text-faint;
+  font-size: 0.85rem;
+}
+
+.badge {
+  display: inline-block;
+  margin-inline-start: 0.4rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: $radius-pill;
+  background: rgba($amber, 0.15);
+  color: #92400e;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
