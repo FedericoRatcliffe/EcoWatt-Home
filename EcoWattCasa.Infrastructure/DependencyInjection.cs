@@ -28,11 +28,20 @@ public static class DependencyInjection
         services.AddScoped<IBillRepository, BillRepository>();
         services.AddSingleton<IBillTextExtractor, PdfBillTextExtractor>();
 
+        services.Configure<RollupOptions>(configuration.GetSection(RollupOptions.SectionName));
+        if (configuration.GetValue($"{RollupOptions.SectionName}:Enabled", true))
+            services.AddHostedService<EnergyRollupService>();
+
         services.Configure<MqttOptions>(configuration.GetSection(MqttOptions.SectionName));
         services.AddSingleton<MqttConnection>();
         services.AddScoped<IDeviceCommandPublisher, MqttCommandPublisher>();
 
-        // Se puede apagar con "Mqtt:Enabled": false para levantar solo la API sin broker.
+        // El broker embebido se registra primero: los hosted services arrancan en orden y el
+        // listener necesita que el puerto ya este escuchando cuando intente conectarse.
+        if (configuration.GetValue($"{MqttOptions.SectionName}:Embedded", false))
+            services.AddHostedService<EmbeddedMqttBroker>();
+
+        // Se puede apagar con "Mqtt:Enabled": false para levantar solo la API sin MQTT.
         if (configuration.GetValue($"{MqttOptions.SectionName}:Enabled", true))
             services.AddHostedService<MqttListenerService>();
 

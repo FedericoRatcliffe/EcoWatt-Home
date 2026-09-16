@@ -20,10 +20,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Opcional: la API trae un broker embebido. Este servicio solo hace falta si se prefiere
+  # un Mosquitto aparte, y en ese caso hay que poner "Mqtt:Embedded": false en la API.
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: ecowatt-mosquitto
     restart: unless-stopped
+    profiles:
+      - mosquitto
     ports:
       - "1883:1883"
       - "9001:9001"
@@ -41,17 +45,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mosquitto:
-        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=ecowatt;Username=ecowatt;Password=ecowatt"
-      Mqtt__Host: "mosquitto"
+      Mqtt__Embedded: "true"
       Cors__AllowedOrigins__0: "http://localhost:4200"
       Cors__AllowedOrigins__1: "http://localhost:8081"
     ports:
       - "5080:8080"
+      # El broker embebido vive en el mismo contenedor: los Sonoff de la LAN entran por aca.
+      - "1883:1883"
 
   frontend:
     build:
@@ -72,10 +76,9 @@ services:
     container_name: ecowatt-mock
     restart: unless-stopped
     depends_on:
-      mosquitto:
-        condition: service_started
+      - api
     environment:
-      MQTT_HOST: "mosquitto"
+      MQTT_HOST: "api"
     profiles:
       - mock
 

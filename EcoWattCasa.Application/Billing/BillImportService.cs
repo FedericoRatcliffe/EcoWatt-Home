@@ -79,106 +79,18 @@ public sealed class BillImportService(
             warnings);
     }
 
-    /// <summary>Convierte los renglones de la factura en uno o dos cuadros tarifarios fechados.</summary>
+    /// <summary>Deduce los cuadros tarifarios de la factura y los guarda.</summary>
     private async Task<List<TariffScheduleDto>> SaveSchedulesAsync(
         ParsedBill parsed, List<string> warnings, CancellationToken ct)
     {
+        var result = TariffScheduleFactory.Build(parsed, DateTimeOffset.UtcNow);
+        warnings.AddRange(result.Warnings);
+
         var saved = new List<TariffScheduleDto>();
-        if (parsed.Details.Count == 0)
-            return saved;
-
-        // Los renglones se agrupan por cantidad de dias: cada grupo es un periodo de precio.
-        // Se respeta el orden de aparicion, que en la factura es cronologico.
-        var groups = new List<(int Days, List<BillDetailLine> Lines)>();
-        foreach (var line in parsed.Details)
+        foreach (var schedule in result.Schedules)
         {
-            var group = groups.FirstOrDefault(g => g.Days == line.Days);
-            if (group.Lines is null)
-            {
-                group = (line.Days, []);
-                groups.Add(group);
-            }
-
-            group.Lines.Add(line);
-        }
-
-        // Los dias de los grupos tienen que sumar los dias del periodo; si no, las fechas de
-        // vigencia que se deducen quedan corridas.
-        var totalGroupDays = groups.Sum(g => g.Days);
-        if (totalGroupDays != parsed.Days)
-        {
-            warnings.Add(
-                $"Los dias de los tramos suman {totalGroupDays} pero el periodo medido tiene {parsed.Days}. " +
-                "Las fechas de vigencia pueden quedar corridas.");
-        }
-
-        var surcharges = parsed.Taxes
-            .Where(t => t.IsProportional)
-            .Select(t => new TariffSurcharge
-            {
-                Id = Guid.NewGuid(),
-                Name = t.Name,
-                // La tasa sale del cociente contra el basico; la factura redondea a pesos
-                // enteros algunos conceptos, por eso se redondea a 4 decimales.
-                Rate = parsed.BasicAmount > 0 ? Math.Round(t.Amount / parsed.BasicAmount, 4) : 0m
-            })
-            .ToList();
-
-        var periodCharges = parsed.Taxes
-            .Where(t => !t.IsProportional)
-            .Select(t => new TariffPeriodCharge { Id = Guid.NewGuid(), Name = t.Name, Amount = t.Amount })
-            .ToList();
-
-        var start = parsed.ReadingFrom;
-
-        foreach (var (days, lines) in groups)
-        {
-            var fixedLine = lines.FirstOrDefault(l => l.BlockOrder == 0);
-            var blocks = lines
-                .Where(l => l.BlockOrder > 0)
-                .OrderBy(l => l.BlockOrder)
-                .Select(l => new TariffBlock
-                {
-                    Id = Guid.NewGuid(),
-                    Order = l.BlockOrder,
-                    Label = $"Hasta {l.UpToKwh:0} kWh",
-                    UpToKwh = l.UpToKwh,
-                    PricePerKwh = l.UnitPrice
-                })
-                .ToList();
-
-            if (blocks.Count == 0)
-            {
-                warnings.Add($"El grupo de {days} dias no trajo tramos variables; se omitio.");
-                start = start.AddDays(days);
-                continue;
-            }
-
-            var schedule = new TariffSchedule
-            {
-                Id = Guid.NewGuid(),
-                ValidFrom = start,
-                // El cargo fijo de la factura viene por el total del sub-periodo: se pasa a diario.
-                FixedChargePerDay = fixedLine is not null && days > 0
-                    ? Math.Round(fixedLine.Amount / days, 4)
-                    : 0m,
-                Source = $"Factura {parsed.Period} ({parsed.InvoiceNumber})",
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-
-            foreach (var block in blocks)
-                schedule.Blocks.Add(block);
-
-            foreach (var surcharge in surcharges)
-                schedule.Surcharges.Add(Clone(surcharge));
-
-            foreach (var charge in periodCharges)
-                schedule.PeriodCharges.Add(Clone(charge));
-
             var stored = await tariffs.UpsertAsync(schedule, ct);
             saved.Add(TariffService.Map(stored));
-
-            start = start.AddDays(days);
         }
 
         return saved;
@@ -264,9 +176,4 @@ public sealed class BillImportService(
                    Math.Abs(pair.First.Value - pair.Second.Value) <= tolerance);
     }
 
-    private static TariffSurcharge Clone(TariffSurcharge s)
-        => new() { Id = Guid.NewGuid(), Name = s.Name, Rate = s.Rate };
-
-    private static TariffPeriodCharge Clone(TariffPeriodCharge c)
-        => new() { Id = Guid.NewGuid(), Name = c.Name, Amount = c.Amount };
 }

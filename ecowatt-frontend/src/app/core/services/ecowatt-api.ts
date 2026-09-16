@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  Alert,
   BillImportResult,
   CycleInfo,
   DailyDashboard,
@@ -82,6 +83,11 @@ export class EcowattApi {
 
   getCycleInfo(): Observable<CycleInfo> {
     return this.http.get<CycleInfo>('/api/dashboard/cycle');
+  }
+
+  /** Alertas vigentes: cruce de tramo proyectado, dispositivos mudos, proyeccion alta. */
+  getAlerts(): Observable<Alert[]> {
+    return this.http.get<Alert[]>('/api/alerts');
   }
 
   getTariff(): Observable<TariffSchedule> {

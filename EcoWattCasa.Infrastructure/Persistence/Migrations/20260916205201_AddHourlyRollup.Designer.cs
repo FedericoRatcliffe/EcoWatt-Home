@@ -3,6 +3,7 @@ using System;
 using EcoWattCasa.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EcoWattCasa.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(EcoWattDbContext))]
-    partial class EcoWattDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916205201_AddHourlyRollup")]
+    partial class AddHourlyRollup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

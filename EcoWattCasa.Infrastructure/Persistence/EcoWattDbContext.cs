@@ -8,6 +8,9 @@ public class EcoWattDbContext(DbContextOptions<EcoWattDbContext> options) : DbCo
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<EnergyReading> EnergyReadings => Set<EnergyReading>();
 
+    /// <summary>Horas consolidadas: lo que consultan los graficos mas alla de la retencion.</summary>
+    public DbSet<EnergyHourly> EnergyHourly => Set<EnergyHourly>();
+
     public DbSet<TariffSchedule> TariffSchedules => Set<TariffSchedule>();
     public DbSet<TariffBlock> TariffBlocks => Set<TariffBlock>();
     public DbSet<TariffSurcharge> TariffSurcharges => Set<TariffSurcharge>();

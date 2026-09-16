@@ -4,4 +4,5 @@
   <Project Path="EcoWattCasa.Domain/EcoWattCasa.Domain.csproj" />
   <Project Path="EcoWattCasa.Infrastructure/EcoWattCasa.Infrastructure.csproj" />
   <Project Path="EcoWattCasa.MockDevices/EcoWattCasa.MockDevices.csproj" />
+  <Project Path="EcoWattCasa.Tests/EcoWattCasa.Tests.csproj" />
 </Solution>

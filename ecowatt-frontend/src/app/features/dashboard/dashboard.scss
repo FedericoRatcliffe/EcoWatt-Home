@@ -180,3 +180,81 @@ table.bill tr.total td {
   line-height: 1.55;
   color: $text-faint;
 }
+
+// ================================
+// Alertas
+// ================================
+// El color de estado nunca informa solo: cada alerta lleva la palabra de severidad al lado.
+
+.alerts {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  background: $surface;
+  border: 1px solid $border-soft;
+  border-left-width: 3px;
+  border-radius: $radius-md;
+  box-shadow: $shadow-soft;
+
+  &__badge {
+    flex-shrink: 0;
+    padding: 0.1rem 0.5rem;
+    border-radius: $radius-pill;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__body {
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: $text-strong;
+  }
+
+  &__detail {
+    margin: 0.15rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: $text-soft;
+  }
+
+  &.critical {
+    border-left-color: $red-500;
+
+    .alert__badge {
+      background: rgba($red-500, 0.12);
+      color: $red-700;
+    }
+  }
+
+  &.warning {
+    border-left-color: $amber;
+
+    .alert__badge {
+      background: rgba($amber, 0.15);
+      color: #92400e;
+    }
+  }
+
+  &.info {
+    border-left-color: $blue-600;
+
+    .alert__badge {
+      background: rgba($blue-600, 0.1);
+      color: $blue-700;
+    }
+  }
+}

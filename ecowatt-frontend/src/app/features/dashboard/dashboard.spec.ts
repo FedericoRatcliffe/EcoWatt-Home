@@ -123,6 +123,15 @@ describe('Dashboard', () => {
     });
     http.expectOne((r) => r.url === '/api/dashboard/daily').flush(daily);
     http.expectOne((r) => r.url === '/api/dashboard/period').flush(period);
+    http.expectOne((r) => r.url === '/api/alerts').flush([
+      {
+        code: 'block-crossing',
+        severity: 'Warning',
+        title: 'Vas a cruzar los 150 kWh',
+        detail: 'A partir de ahi cada kWh pasa de $376 a $503.',
+        deviceId: null,
+      },
+    ]);
   }
 
   it('muestra la factura del ciclo, su desglose y las cards por dispositivo', async () => {
@@ -169,6 +178,10 @@ describe('Dashboard', () => {
     expect(text).toContain('PC + monitores');
     expect(text).toContain('276 W');
     expect(text).toContain('Heladera');
+
+    // La alerta se muestra con la palabra de severidad, no solo con color.
+    expect(text).toContain('Atencion');
+    expect(text).toContain('Vas a cruzar los 150 kWh');
   });
 
   it('avisa cuando la API no responde', async () => {
@@ -177,6 +190,7 @@ describe('Dashboard', () => {
     http.expectOne((r) => r.url === '/api/dashboard/cycle').error(new ProgressEvent('error'), { status: 0 });
     http.expectOne((r) => r.url === '/api/dashboard/daily').error(new ProgressEvent('error'), { status: 0 });
     http.expectOne((r) => r.url === '/api/dashboard/period').error(new ProgressEvent('error'), { status: 0 });
+    http.expectOne((r) => r.url === '/api/alerts').error(new ProgressEvent('error'), { status: 0 });
 
     await fixture.whenStable();
     const text = visibleText(fixture.nativeElement as HTMLElement);

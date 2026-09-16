@@ -129,6 +129,17 @@ export interface PeriodDashboard {
   daily: HistoryPoint[];
 }
 
+export type AlertSeverity = 'Info' | 'Warning' | 'Critical';
+
+export interface Alert {
+  /** Identificador estable de la regla: block-crossing, device-silent, telemetry-down... */
+  code: string;
+  severity: AlertSeverity;
+  title: string;
+  detail: string;
+  deviceId: string | null;
+}
+
 export interface CycleInfo {
   anchor: string;
   cycleDays: number;

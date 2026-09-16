@@ -81,26 +81,8 @@ public sealed class EnergyReadingRepository(EcoWattDbContext db) : IEnergyReadin
     public async Task<IReadOnlyList<BucketEnergySamples>> GetHourlySamplesAsync(
         DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default)
     {
-        const string sql = """
-            SELECT (date_trunc('hour', r."timestamp" AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS bucket,
-                   r.device_id,
-                   (array_agg(r.total_kwh ORDER BY r."timestamp" ASC)
-                      FILTER (WHERE r.total_kwh IS NOT NULL))[1] AS first_total,
-                   (array_agg(r.total_kwh ORDER BY r."timestamp" DESC)
-                      FILTER (WHERE r.total_kwh IS NOT NULL))[1] AS last_total,
-                   AVG(r.watts)       AS avg_watts,
-                   MAX(r.watts)       AS max_watts,
-                   COUNT(*)           AS samples,
-                   MIN(r."timestamp") AS first_ts,
-                   MAX(r."timestamp") AS last_ts
-            FROM energy_readings r
-            WHERE r."timestamp" >= @from AND r."timestamp" < @to
-            GROUP BY bucket, r.device_id
-            ORDER BY bucket
-            """;
-
         var result = new List<BucketEnergySamples>();
-        await using var command = await CreateCommandAsync(sql, ct);
+        await using var command = await CreateCommandAsync(EnergyHourlySql.SelectHourlySamples, ct);
         AddTimestamp(command, "from", fromUtc);
         AddTimestamp(command, "to", toUtc);
 
@@ -114,6 +96,22 @@ public sealed class EnergyReadingRepository(EcoWattDbContext db) : IEnergyReadin
         }
 
         return result;
+    }
+
+    public async Task<(int HoursRolledUp, int RawDeleted)> RollUpAndPruneAsync(
+        DateTimeOffset completeBefore, DateTimeOffset deleteRawBefore, CancellationToken ct = default)
+    {
+        await using var rollUp = await CreateCommandAsync(EnergyHourlySql.RollUp, ct);
+        AddTimestamp(rollUp, "completeBefore", completeBefore);
+        var hours = await rollUp.ExecuteNonQueryAsync(ct);
+
+        // El borrado va despues y solo sobre horas ya consolidadas: si el rollup no corrio,
+        // no se pierde nada.
+        await using var prune = await CreateCommandAsync(EnergyHourlySql.PruneRaw, ct);
+        AddTimestamp(prune, "deleteBefore", deleteRawBefore);
+        var deleted = await prune.ExecuteNonQueryAsync(ct);
+
+        return (hours, deleted);
     }
 
     /// <summary>Lee las 7 columnas de agregacion que arrancan en <paramref name="offset"/>.</summary>

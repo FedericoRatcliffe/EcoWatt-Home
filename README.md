@@ -11,10 +11,10 @@ Stack: .NET 10 (Clean Architecture) · Angular 22 · PostgreSQL 17 · Mosquitto 
 ## Arranque rápido (con el mock, sin hardware)
 
 ```bash
-# 1. Base y broker
-docker compose up -d postgres mosquitto
+# 1. Base de datos
+docker compose up -d postgres
 
-# 2. API (migra y siembra la base al arrancar)
+# 2. API: migra, siembra, y levanta su propio broker MQTT en el puerto 1883
 dotnet run --project EcoWattCasa.API            # http://localhost:5080
 
 # 3. Dispositivos simulados: publica cada 10 s por MQTT
@@ -23,6 +23,10 @@ dotnet run --project EcoWattCasa.MockDevices
 # 4. Frontend
 cd ecowatt-frontend && npm start                # http://localhost:4200
 ```
+
+No hace falta instalar Mosquitto: la API trae un **broker MQTT embebido** que escucha en
+`0.0.0.0:1883` y arranca y para con ella. Los Sonoff se conectan ahí igual que a un broker
+externo. Para usar uno propio, poné `"Mqtt:Embedded": false` y apuntá `Mqtt:Host` a su IP.
 
 Para tener los gráficos con datos desde el primer minuto, generá historia antes de levantar el
 resto (45 días cubre el ciclo actual y el anterior, así la comparación tiene con qué comparar):
@@ -42,18 +46,18 @@ docker compose --profile mock up -d --build     # frontend en http://localhost:8
 
 ### Sin Docker
 
-`docker compose` necesita WSL2 con una distribución instalada (`wsl --install`). Si no está,
-los dos servicios se pueden reemplazar por instalaciones nativas:
+`docker compose` necesita WSL2 con una distribución instalada (`wsl --install`). Si no está, lo
+único que hay que resolver aparte es la base: el broker ya viene adentro de la API.
 
-- **PostgreSQL local:** creá la base y el rol que espera `appsettings.json`
-  (como superusuario `postgres`):
-  ```sql
-  CREATE ROLE ecowatt LOGIN PASSWORD 'ecowatt' CREATEDB;
-  CREATE DATABASE ecowatt OWNER ecowatt;
-  ```
-  La API aplica las migraciones sola al arrancar.
-- **Mosquitto para Windows:** instalarlo desde mosquitto.org y dejarlo escuchando en 1883
-  (`listener 1883` + `allow_anonymous true` en su `mosquitto.conf`).
+**PostgreSQL local:** creá la base y el rol que espera `appsettings.json` (como superusuario
+`postgres`):
+
+```sql
+CREATE ROLE ecowatt LOGIN PASSWORD 'ecowatt' CREATEDB;
+CREATE DATABASE ecowatt OWNER ecowatt;
+```
+
+La API aplica las migraciones sola al arrancar.
 
 ---
 
@@ -114,6 +118,7 @@ Dos cosas que **no** se copiaron, a propósito:
 | PUT | `/api/tariff` | Carga un cuadro nuevo con su vigencia |
 | POST | `/api/tariff/import` | Sube el PDF de la factura y carga tarifas + comprobante |
 | GET | `/api/tariff/bills` | Facturas reales ya importadas |
+| GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta |
 | — | `/hubs/energy` | Hub SignalR: eventos `readingReceived`, `deviceRegistered` |
 
 ---
@@ -194,6 +199,43 @@ cantidad de horas. La curva de la casa no muestra pico: el máximo del total no 
 de los máximos por dispositivo, porque los picos no tienen por qué coincidir en el tiempo. En la
 vista de un dispositivo el pico sí es exacto.
 
+**El consumo viejo vive consolidado por hora, no lectura por lectura.** Con tres enchufes a
+`TelePeriod 10` entran 25.920 filas por día: en un año la tabla llega a ~9,5 M y consultar un
+mes obliga a escanear cientos de miles de filas cada vez que el dashboard refresca. Un servicio
+en segundo plano consolida cada hora cerrada en `energy_hourly` —una fila por hora y
+dispositivo, ~26.000 al año— y después borra las lecturas crudas anteriores a la retención.
+
+La lectura combina las dos fuentes: las horas ya consolidadas salen de `energy_hourly` y las que
+el rollup todavía no procesó (típicamente la hora en curso) se agregan al vuelo desde las
+crudas. El orden importa: **consolidar no pisa horas ya hechas, y el borrado solo toca lecturas
+cuya hora ya quedó guardada**, así que un rollup que falla no se lleva datos puestos.
+
+Medido sobre 45 días de datos simulados: la vista mensual pasó de **77 ms escaneando 117.876
+filas** a **39 ms**, de los cuales el rollup aporta 0,25 ms para 1.908 horas. Lo que queda es el
+scan de las crudas del rango — ahora acotado por la retención en vez de crecer sin techo. Si
+alguna vez molesta, la perilla es bajar `Rollup:RawRetentionDays`.
+
+Verificado comparando las dos fuentes hora por hora: de 1.263 horas donde todavía conviven,
+**1.260 coinciden exacto**; las 3 restantes son la única hora que cruza el corte de retención,
+donde el rollup tiene las 60 muestras completas y quedan 6 crudas sueltas. La lectura usa el
+rollup, así que el valor es el correcto.
+
+**Las alertas se calculan al pedirlas, no se guardan.** Son una lectura del estado actual, no
+un historial: así no hay que resolver acuses de recibo ni alertas rancias. Hay tres reglas:
+
+- **Cruce de tramo.** Es la que justifica la función: con tarifa por tramos, pasar los 150 kWh
+  sube el kWh marginal de ~$376 a ~$503. La alerta proyecta el consumo del ciclo, estima la
+  fecha del cruce y dice entre qué precios salta. No avisa de cruzar el último tope cargado
+  (300 kWh): ninguna factura llegó a ese tramo, así que no hay precio para el kWh 301 y avisar
+  sería inventarlo.
+- **Dispositivo mudo.** Un enchufe que deja de reportar no se nota mirando el dashboard —los
+  totales simplemente quedan bajos—, así que el silencio es una alerta explícita. Si callaron
+  *todos*, el problema no es de un aparato: sale una sola alerta crítica apuntando al broker.
+- **Proyección por encima del ciclo anterior**, con umbral configurable.
+
+Las reglas son una función pura del estado (`AlertRules`): reciben el contexto ya armado, sin
+base ni reloj, y por eso cada caso tiene su test.
+
 **Un topic desconocido se auto-registra.** Si llega telemetría de `tele/sonoff-nuevo/SENSOR`
 sin dispositivo en la base, se crea solo (y se avisa por SignalR). Enchufar un Sonoff nuevo
 lo hace aparecer en el dashboard; después se le corrige el nombre desde Configuración.
@@ -204,13 +246,19 @@ lo hace aparecer en el dashboard; después se le corrige el nombre desde Configu
 
 1. En cada Sonoff, por la consola de Tasmota:
    ```
-   Backlog MqttHost <ip-de-esta-pc>; MqttPort 1883; Topic sonoff-pc; TelePeriod 10
+   Backlog MqttHost 192.168.0.27; MqttPort 1883; Topic sonoff-pc; TelePeriod 10
    ```
-   `Topic` es el que se registra en la app (sin `tele/` ni `cmnd/`). `TelePeriod 10` es el
-   intervalo de telemetría en segundos; el mínimo que acepta Tasmota es 10.
+   `MqttHost` es la IP de esta PC en la LAN — verificala con `ipconfig`, y conviene fijarla por
+   DHCP en el router para que no cambie. `Topic` es el que se registra en la app (sin `tele/`
+   ni `cmnd/`). `TelePeriod 10` es el intervalo de telemetría en segundos; el mínimo que acepta
+   Tasmota es 10.
 2. Cortar el mock (`Ctrl+C`, o `docker compose stop mock`).
 3. En Configuración, cambiar el tipo de los dispositivos de `Simulated` a `SonoffPowR2`,
    o registrarlos nuevos con el topic real.
+
+El broker embebido escucha en todas las interfaces, así que los dispositivos de la LAN llegan
+sin configuración extra. Lo que sí hay que abrir es el **puerto 1883 en el firewall de Windows**
+para la red privada.
 
 El listener está suscrito a `tele/+/SENSOR`, así que no hay nada que cambiar en el código.
 
@@ -222,6 +270,9 @@ El listener está suscrito a `tele/+/SENSOR`, así que no hay nada que cambiar e
 devices          (id, name, mqtt_topic UNIQUE, location, nominal_watts, type, is_active, created_at)
 energy_readings  (id, device_id FK, timestamp, watts, voltage, amperage,
                   total_kwh, today_kwh, power_factor, created_at)
+energy_hourly    (device_id FK, hour_utc, first_total_kwh, last_total_kwh, avg_watts,
+                  max_watts, sample_count, first_timestamp, last_timestamp, rolled_up_at)
+                  PK (device_id, hour_utc)
 tariff_schedules (id, valid_from UNIQUE, fixed_charge_per_day, source, created_at)
 tariff_blocks    (id, tariff_schedule_id FK, order, label, up_to_kwh, price_per_kwh)
 tariff_surcharges     (id, tariff_schedule_id FK, name, rate)      -- % sobre el básico
@@ -246,13 +297,49 @@ La API corre `Database.Migrate()` al arrancar, así que no hace falta aplicarlas
 ## Tests
 
 ```bash
-dotnet build EcoWattCasa.slnx                   # backend
-cd ecowatt-frontend && npx ng test --watch=false # smoke del dashboard (vitest + jsdom)
+dotnet test EcoWattCasa.Tests                    # 141 tests de tarifa y alertas
+cd ecowatt-frontend && npx ng test --watch=false  # smoke del dashboard (vitest + jsdom)
 ```
 
-El smoke test monta el dashboard con la API mockeada y verifica las cards, la comparación
-mensual, el formato en es-AR y el reemplazo de la potencia por la que llega del hub. Los
-gráficos no se ejercitan ahí: jsdom no tiene canvas, así que el test fuerza la vista de tabla.
+**El caso de referencia son tus cinco facturas reales.** `RealBills.cs` las tiene cargadas con
+sus fechas de lectura, kWh, importe básico y total impreso, más los cuadros tarifarios
+deducidos del reparto de días. `BillGoldenTests` reconstruye cada una y compara contra el papel
+con **un peso de tolerancia** — lo que queda de diferencia no es error del cálculo, es que la
+cooperativa redondea a pesos enteros Cap.Rem.L.B.T. y Cap.Inv.Bienes de Uso.
+
+| Archivo | Qué cubre |
+|---|---|
+| `Billing/BillGoldenTests` | Las 5 facturas reproducen su total, su importe básico y su desglose por tramos |
+| `Billing/BillAllocationTests` | Los dos repartos cierran: cards + cargos fijos = factura, y suma de días = costo de energía |
+| `Billing/BillParserTests` | Las 5 facturas leídas del PDF real: columnas invertidas, importes pegados a su etiqueta, impuestos porcentuales vs. montos fijos, y el círculo completo PDF → cuadros → factura recalculada |
+| `Billing/TariffScheduleFactoryTests` | Casos de borde de la deducción de cuadros: días que no cierran, factura sin detalle, importe básico en cero |
+| `Common/EnergyMathTests` | Contador reseteado, delta imposible, sin acumulado, una sola muestra |
+| `Common/BillingCyclesTests` | Ciclo anclado en la última lectura, avance de 30 días, ventanas UTC de un día local |
+| `Alerts/AlertRulesTests` | Cruce de tramo con los precios reales y su fecha estimada, dispositivo mudo vs. broker caído, umbrales configurables |
+
+La suite se verificó con **mutation testing**: revertir el reparto de tramos a kWh decimales
+tumba 6 tests (las tres facturas con aumento a mitad de período) y sacar la guarda del contador
+reseteado tumba el suyo. No son tests que pasen por casualidad.
+
+El smoke test del frontend monta el dashboard con la API mockeada y verifica el desglose de la
+factura, el reparto energía/cargos fijos, el precio marginal y el formato en es-AR. Los gráficos
+no se ejercitan ahí: jsdom no tiene canvas, así que el test fuerza la vista de tabla.
+
+### Fixtures del parser
+
+`Fixtures/Bills/factura-AAAA-MM.txt` es la salida literal de PdfPig sobre cada una de las cinco
+facturas. Van versionadas para que los tests no dependan de tener los PDF en disco.
+
+El parser se valida por **doble entrada**: lo que extrae de cada PDF se compara contra los
+mismos números transcriptos a mano en `RealBills.cs`. Dos caminos independientes — el extractor
+y mi lectura del papel — tienen que coincidir. Además hay dos controles de consistencia que no
+dependen de la transcripción:
+
+- Los impuestos leídos suman el subtotal impreso en cada factura.
+- El precio nuevo de una factura es el viejo de la siguiente (la serie encadena mes a mes).
+
+Para regenerar un fixture si cambia el formato del PDF, extraé el texto con
+`UglyToad.PdfPig` + `ContentOrderTextExtractor` y guardalo tal cual.
 
 ---
 
@@ -265,9 +352,17 @@ gráficos no se ejercitan ahí: jsdom no tiene canvas, así que el test fuerza l
 |---|---|---|
 | `ConnectionStrings:Postgres` | `Host=localhost;...;Database=ecowatt` | Base |
 | `Mqtt:Enabled` | `true` | `false` levanta la API sin listener MQTT |
+| `Mqtt:Embedded` | `true` | La API levanta su propio broker; `false` usa uno externo |
 | `Mqtt:Host` / `Mqtt:Port` | `localhost` / `1883` | Broker |
+| `Mqtt:Username` / `Password` | vacío | Si se cargan, el broker embebido las exige |
 | `Mqtt:TelemetryTopicFilter` | `tele/+/SENSOR` | Qué escucha |
 | `EcoWatt:TimeZone` | `America/Argentina/Buenos_Aires` | Corte de día y de ciclo |
+| `Rollup:Enabled` | `true` | Consolidación horaria y poda de lecturas crudas |
+| `Rollup:IntervalMinutes` | `15` | Cada cuánto consolidar |
+| `Rollup:RawRetentionDays` | `21` | Días de lecturas crudas que se conservan |
+| `Alerts:Enabled` | `true` | Cálculo de alertas |
+| `Alerts:SilenceMinutes` | `10` | Minutos sin reportar para considerar mudo un dispositivo |
+| `Alerts:OverrunRatio` | `0.15` | Cuánto debe superar la proyección al ciclo anterior para avisar |
 | `Cors:AllowedOrigins` | `http://localhost:4200` | Origen del frontend |
 
 ---

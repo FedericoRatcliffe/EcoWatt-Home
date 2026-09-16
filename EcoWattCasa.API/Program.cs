@@ -33,7 +33,7 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     // SignalR con WebSockets necesita credenciales permitidas para el handshake.
     .AllowCredentials()));
 
-builder.Services.AddApplication(builder.Configuration["EcoWatt:TimeZone"]);
+builder.Services.AddApplication(builder.Configuration["EcoWatt:TimeZone"], builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IRealtimeNotifier, SignalRNotifier>();
 

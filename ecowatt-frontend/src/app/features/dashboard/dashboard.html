@@ -37,6 +37,21 @@
     <button class="btn" type="button" (click)="reload()">Actualizar</button>
   </div>
 
+  <!-- Alertas: lo mas grave primero. El color va siempre con la palabra, nunca solo. -->
+  @if (alerts().length > 0) {
+    <section class="alerts">
+      @for (alert of alerts(); track alert.code + (alert.deviceId ?? '')) {
+        <div class="alert" [class]="severityClass(alert.severity)">
+          <span class="alert__badge">{{ severityLabel(alert.severity) }}</span>
+          <div class="alert__body">
+            <p class="alert__title">{{ alert.title }}</p>
+            <p class="alert__detail">{{ alert.detail }}</p>
+          </div>
+        </div>
+      }
+    </section>
+  }
+
   @if (loading()) {
     <div class="empty">Cargando...</div>
   } @else {

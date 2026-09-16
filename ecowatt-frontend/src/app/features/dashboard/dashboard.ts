@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import type { EChartsCoreOption } from 'echarts/core';
 import {
+  Alert,
   CycleInfo,
   DailyDashboard,
   DeviceConsumption,
@@ -57,6 +58,7 @@ export class Dashboard {
   protected readonly daily = signal<DailyDashboard | null>(null);
   protected readonly period = signal<PeriodDashboard | null>(null);
   protected readonly cycleInfo = signal<CycleInfo | null>(null);
+  protected readonly alerts = signal<Alert[]>([]);
 
   protected readonly loading = signal(true);
   protected readonly refreshing = signal(false);
@@ -86,6 +88,15 @@ export class Dashboard {
   protected readonly isToday = computed(() => this.date() === todayIso());
 
   protected readonly bill = computed(() => this.period()?.bill ?? null);
+
+  /** El color de estado siempre va acompañado de la palabra: nunca informa solo. */
+  protected severityLabel(severity: Alert['severity']): string {
+    return severity === 'Critical' ? 'Critico' : severity === 'Warning' ? 'Atencion' : 'Info';
+  }
+
+  protected severityClass(severity: Alert['severity']): string {
+    return severity.toLowerCase();
+  }
 
   /** Direccion del cambio contra el periodo anterior: flecha + texto, nunca solo color. */
   protected readonly trend = computed(() => {
@@ -337,6 +348,12 @@ export class Dashboard {
         this.refreshing.set(false);
       }
     };
+
+    // Las alertas no bloquean el render: si fallan, el dashboard igual sirve.
+    this.api.getAlerts().subscribe({
+      next: (a) => this.alerts.set(a),
+      error: () => this.alerts.set([]),
+    });
 
     this.api.getDaily(this.date()).subscribe({
       next: (d) => {
