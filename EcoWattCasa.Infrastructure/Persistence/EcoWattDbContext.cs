@@ -18,6 +18,9 @@ public class EcoWattDbContext(DbContextOptions<EcoWattDbContext> options) : DbCo
 
     public DbSet<ImportedBill> ImportedBills => Set<ImportedBill>();
 
+    /// <summary>Auditoria de los comandos de rele, ejecutados y rechazados.</summary>
+    public DbSet<RelayCommand> RelayCommands => Set<RelayCommand>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(EcoWattDbContext).Assembly);

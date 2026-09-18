@@ -1,5 +1,6 @@
 using EcoWattCasa.Application.DTOs;
 using EcoWattCasa.Application.Services;
+using EcoWattCasa.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcoWattCasa.API.Controllers;
@@ -76,9 +77,16 @@ public sealed class DevicesController(DeviceService devices, DashboardService da
     {
         try
         {
-            return await devices.SetPowerAsync(id, dto.On, ct)
+            var result = await devices.SetPowerAsync(id, dto.On, RelayCommandSource.Dashboard, ct);
+
+            if (!result.DeviceExists)
+                return NotFound();
+
+            // 409 y no 400: el pedido esta bien formado, pero el estado del dispositivo no
+            // admite conmutarlo ahora. El motivo va en texto porque se muestra tal cual.
+            return result.Allowed
                 ? Accepted(new { deviceId = id, requested = dto.On ? "ON" : "OFF" })
-                : NotFound();
+                : Conflict(new { error = result.Reason, outcome = result.Outcome.ToString() });
         }
         catch (InvalidOperationException ex)
         {
@@ -86,6 +94,12 @@ public sealed class DevicesController(DeviceService devices, DashboardService da
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = ex.Message });
         }
     }
+
+    /// <summary>Historial de conmutaciones del rele, incluidas las rechazadas.</summary>
+    [HttpGet("{id:guid}/relay-history")]
+    public async Task<ActionResult<IReadOnlyList<RelayCommandDto>>> GetRelayHistory(
+        Guid id, [FromQuery] int limit, CancellationToken ct)
+        => Ok(await devices.GetRelayHistoryAsync(id, limit <= 0 ? 20 : limit, ct));
 }
 
 public sealed record SetPowerDto(bool On);

@@ -30,6 +30,39 @@
   gap: 0.5rem;
 }
 
+.power {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+// El estado siempre lleva la palabra, no solo el color: encendido/apagado se lee igual sin ver.
+.relay-state {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: $radius-pill;
+  background: rgba($text-faint, 0.12);
+  color: $text-soft;
+
+  &.on {
+    background: rgba($green, 0.18);
+    color: $green-700;
+  }
+
+  &.off {
+    background: rgba($text-faint, 0.16);
+    color: $text-strong;
+  }
+}
+
+// Reemplaza a los botones, no los acompaña deshabilitados: un boton gris no dice por que.
+.locked {
+  max-width: 22rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: $text-soft;
+}
+
 .notice {
   margin: -0.5rem 0 1rem;
   font-size: 0.82rem;
@@ -45,4 +78,66 @@
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+// ================================
+// Historial del rele
+// ================================
+// Lista y no tabla: cada renglon es un hecho corto con un motivo en texto que puede ser largo,
+// y en una tabla ese motivo obligaria a una columna que casi siempre esta vacia.
+
+.relay-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relay-log li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid $border-soft;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.relay-log .when {
+  min-width: 6.5rem;
+  color: $text-faint;
+  font-variant-numeric: tabular-nums;
+}
+
+.relay-log .what {
+  min-width: 4.5rem;
+  font-weight: 600;
+  color: $text-strong;
+}
+
+.relay-log .outcome {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: $radius-pill;
+  background: rgba($green, 0.18);
+  color: $green-700;
+}
+
+// Un intento frenado por la guarda: el borde ambar lo separa del resto, y la palabra del
+// resultado ya dice cual fue.
+.relay-log li.blocked {
+  .outcome {
+    background: rgba($amber, 0.16);
+    color: #92400e;
+  }
+}
+
+.relay-log .reason {
+  flex: 1 1 100%;
+  color: $text-soft;
+  line-height: 1.5;
 }

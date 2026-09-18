@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<DashboardService>();
         services.AddScoped<TariffService>();
         services.AddScoped<EnergyIngestionService>();
+        services.AddScoped<RelayStateService>();
         services.AddScoped<BillImportService>();
         services.AddScoped<AlertService>();
 

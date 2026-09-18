@@ -69,20 +69,55 @@ export class Dashboard {
   protected readonly showDailyTable = signal(false);
   protected readonly showBillDetail = signal(false);
 
+  protected readonly house = computed(() => this.period()?.house ?? null);
+
+  /**
+   * Potencia de toda la casa ahora, o null si no hay medidor de tablero.
+   *
+   * Con medidor sale de él y no de la suma de las cards: su lectura ya incluye a los enchufes,
+   * así que sumar todo contaría dos veces lo que pasa por un enchufe medido.
+   */
+  private readonly liveHouseWatts = computed<number | null>(() => {
+    const h = this.house();
+    if (!h?.hasMeter || h.meterDeviceIds.length === 0) {
+      return null;
+    }
+
+    // Mientras no haya llegado por el hub la lectura de todos los medidores vale la de la API:
+    // mezclar un medidor en vivo con otro sin dato daría un total corto.
+    const live = this.realtime.wattsByDevice();
+    return h.meterDeviceIds.every((id) => live[id] !== undefined)
+      ? h.meterDeviceIds.reduce((sum, id) => sum + live[id], 0)
+      : h.currentWatts;
+  });
+
   /**
    * Las cards mezclan el costo del periodo (que viene de la API) con la potencia en vivo
    * (que llega por el hub): el costo se recalcula cada minuto, los watts al instante.
    */
   protected readonly cards = computed<DeviceConsumption[]>(() => {
     const live = this.realtime.wattsByDevice();
-    return (this.period()?.devices ?? []).map((d) => ({
-      ...d,
-      currentWatts: live[d.deviceId] ?? d.currentWatts,
-    }));
+    const rows = (this.period()?.devices ?? []).map((d) =>
+      d.isUnidentified ? d : { ...d, currentWatts: live[d.deviceId] ?? d.currentWatts },
+    );
+
+    const houseWatts = this.liveHouseWatts();
+    if (houseWatts === null) {
+      return rows;
+    }
+
+    // "No identificado" no se mide: es una resta. Se recalcula con los watts en vivo para que
+    // no quede desfasado respecto de las cards que sí se actualizan solas.
+    const applianceWatts = rows.reduce((sum, r) => (r.isUnidentified ? sum : sum + (r.currentWatts ?? 0)), 0);
+
+    return rows.map((r) =>
+      r.isUnidentified ? { ...r, currentWatts: Math.max(0, houseWatts - applianceWatts) } : r,
+    );
   });
 
-  protected readonly totalWattsNow = computed(() =>
-    this.cards().reduce((sum, c) => sum + (c.currentWatts ?? 0), 0),
+  /** Sin medidor de tablero lo único que se mide es la suma de los enchufes. */
+  protected readonly totalWattsNow = computed(
+    () => this.liveHouseWatts() ?? this.cards().reduce((sum, c) => sum + (c.currentWatts ?? 0), 0),
   );
 
   protected readonly isToday = computed(() => this.date() === todayIso());
@@ -150,7 +185,7 @@ export class Dashboard {
         textStyle: { color: t.textPrimary, fontSize: 12, fontFamily: t.font },
         formatter: (p: { dataIndex: number }) => {
           const d = devices[p.dataIndex];
-          return `<b>${d.name}</b><br/>${money(d.cost)} &middot; ${kwh(d.kwh)}<br/>${percent(d.sharePercent)} del consumo medido`;
+          return `<b>${d.name}</b><br/>${money(d.cost)} &middot; ${kwh(d.kwh)}<br/>${percent(d.sharePercent)} del consumo de la casa`;
         },
       },
       xAxis: {

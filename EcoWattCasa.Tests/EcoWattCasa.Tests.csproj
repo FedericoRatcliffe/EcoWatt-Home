@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\EcoWattCasa.Application\EcoWattCasa.Application.csproj" />
     <ProjectReference Include="..\EcoWattCasa.Domain\EcoWattCasa.Domain.csproj" />
+    <ProjectReference Include="..\EcoWattCasa.MockDevices\EcoWattCasa.MockDevices.csproj" />
   </ItemGroup>
 
   <ItemGroup>

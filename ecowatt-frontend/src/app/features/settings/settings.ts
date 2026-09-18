@@ -5,6 +5,7 @@ import {
   BillImportResult,
   Device,
   DeviceInput,
+  DeviceRole,
   DeviceType,
   ImportedBill,
   TariffInput,
@@ -18,7 +19,13 @@ const EMPTY_DEVICE: DeviceInput = {
   mqttTopic: '',
   location: '',
   nominalWatts: 0,
-  type: 'SonoffPowR2',
+  type: 'AthomPlugV3',
+  // Aparato por defecto, nunca medidor: uno marcado por error como medidor de tablero
+  // corrompe el total de la casa, uno marcado de mas como aparato solo sobra en el desglose.
+  role: 'Appliance',
+  channelIndex: 0,
+  relayLocked: false,
+  minRelayIntervalSeconds: 60,
   isActive: true,
 };
 
@@ -50,7 +57,8 @@ export class Settings {
   protected readonly moneyExact = moneyExact;
   protected readonly percent = percent;
   protected readonly watts = watts;
-  protected readonly deviceTypes: DeviceType[] = ['SonoffPowR2', 'Esp32Sct013', 'Simulated'];
+  protected readonly deviceTypes: DeviceType[] = ['AthomPlugV3', 'AthomEm2'];
+  protected readonly deviceRoles: DeviceRole[] = ['Appliance', 'HouseMeter'];
 
   protected readonly tariff = signal<TariffSchedule | null>(null);
   protected readonly tariffHistory = signal<TariffSchedule[]>([]);
@@ -239,6 +247,15 @@ export class Settings {
 
   // ---------- Dispositivos ----------
 
+  /** Los nombres del enum no le dicen nada a nadie: se muestran por el modelo comprado. */
+  protected typeLabel(type: DeviceType): string {
+    return type === 'AthomEm2' ? 'Athom EM2 (medidor de riel DIN)' : 'Athom Plug V3 (enchufe con rele)';
+  }
+
+  protected roleLabel(role: DeviceRole): string {
+    return role === 'HouseMeter' ? 'Toda la casa (tablero)' : 'Un aparato';
+  }
+
   protected startNewDevice(): void {
     this.editingId.set(null);
     this.form.set({ ...EMPTY_DEVICE });
@@ -252,6 +269,10 @@ export class Settings {
       location: device.location,
       nominalWatts: device.nominalWatts,
       type: device.type,
+      role: device.role,
+      channelIndex: device.channelIndex,
+      relayLocked: device.relayLocked,
+      minRelayIntervalSeconds: device.minRelayIntervalSeconds,
       isActive: device.isActive,
     });
   }

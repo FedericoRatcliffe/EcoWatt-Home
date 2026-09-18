@@ -1,17 +1,38 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { EChartsCoreOption } from 'echarts/core';
-import { Device, DeviceHistory } from '../../core/models/api.models';
+import { Device, DeviceHistory, RelayCommand } from '../../core/models/api.models';
 import { EcowattApi } from '../../core/services/ecowatt-api';
 import { Realtime } from '../../core/services/realtime';
 import { Chart } from '../../shared/chart';
 import { ChartThemeWatcher } from '../../shared/chart-theme';
-import { dayLabel, hourLabel, kwh, money, moneySmart, percent, watts } from '../../shared/format';
+import {
+  dateTimeLabel,
+  dayLabel,
+  hourLabel,
+  kwh,
+  money,
+  moneySmart,
+  percent,
+  watts,
+} from '../../shared/format';
 
 interface RangeOption {
   label: string;
   hours: number;
 }
+
+/**
+ * Como se lee cada resultado de la guarda del rele. El enum del backend no le dice nada a
+ * nadie, y el motivo en texto que lo acompana ya explica el caso puntual.
+ */
+const OUTCOME_LABELS: Record<string, string> = {
+  Sent: 'enviado',
+  BlockedLocked: 'bloqueado',
+  BlockedTooSoon: 'demasiado seguido',
+  BlockedNoRelay: 'sin rele',
+  Failed: 'fallo',
+};
 
 const RANGES: RangeOption[] = [
   { label: '24 h', hours: 24 },
@@ -39,6 +60,7 @@ export class DeviceDetail {
   protected readonly kwh = kwh;
   protected readonly watts = watts;
   protected readonly percent = percent;
+  protected readonly dateTime = dateTimeLabel;
   protected readonly ranges = RANGES;
 
   protected readonly device = signal<Device | null>(null);
@@ -50,10 +72,24 @@ export class DeviceDetail {
   protected readonly notice = signal<string | null>(null);
   protected readonly showTable = signal(false);
 
+  /** Intentos de conmutar el rele, incluidos los rechazados. */
+  protected readonly relayHistory = signal<RelayCommand[]>([]);
+
   /** Potencia del hub si llego algo; si no, la ultima que devolvio la API. */
   protected readonly currentWatts = computed(() => {
     const live = this.realtime.wattsByDevice()[this.id()];
     return live ?? this.device()?.currentWatts ?? null;
+  });
+
+  /**
+   * Estado del relé, con el del hub por encima del que trajo la API.
+   *
+   * Es lo que confirmó el equipo, no lo que se le pidió: si el comando se perdió o si alguien
+   * apretó el botón físico del enchufe, acá se ve la realidad.
+   */
+  protected readonly relayOn = computed<boolean | null>(() => {
+    const live = this.realtime.relayByDevice()[this.id()];
+    return live ? live.on : (this.device()?.relayOn ?? null);
   });
 
   protected readonly byHour = computed(() => this.hours() <= 48);
@@ -128,16 +164,52 @@ export class DeviceDetail {
     this.load(true);
   }
 
+  /** Como se lee un resultado de la guarda. Si apareciera uno nuevo, se muestra tal cual. */
+  protected outcomeLabel(outcome: string): string {
+    return OUTCOME_LABELS[outcome] ?? outcome;
+  }
+
   protected setPower(on: boolean): void {
     this.notice.set(null);
     this.api.setPower(this.id(), on).subscribe({
-      next: () => this.notice.set(`Comando ${on ? 'ON' : 'OFF'} enviado por MQTT.`),
-      error: (err) =>
+      next: () => {
+        this.notice.set(`Comando ${on ? 'ON' : 'OFF'} enviado por MQTT.`);
+        this.loadRelayHistory();
+      },
+      error: (err) => {
+        const response = err as { status?: number; error?: { error?: string } };
+
+        // 409 no es una falla: es la guarda del rele haciendo su trabajo. El motivo viene
+        // del backend porque solo el sabe cuanto falta para la proxima conmutacion.
+        if (response?.status === 409) {
+          this.notice.set(response.error?.error ?? 'El rele no se puede conmutar ahora.');
+          // El rechazo tambien quedo auditado: se recarga para que se vea en la lista.
+          this.loadRelayHistory();
+          return;
+        }
+
         this.notice.set(
-          (err as { status?: number })?.status === 503
+          response?.status === 503
             ? 'No hay conexion con el broker MQTT, el comando no salio.'
             : 'No se pudo enviar el comando.',
-        ),
+        );
+
+        // Un fallo del broker tambien deja rastro; uno de red del navegador no.
+        if (response?.status === 503) {
+          this.loadRelayHistory();
+        }
+      },
+    });
+  }
+
+  /**
+   * El historial es informacion de apoyo: si no se puede traer, la pagina sigue sirviendo.
+   * Por eso no entra en el contador de carga ni levanta el error de la pantalla.
+   */
+  private loadRelayHistory(): void {
+    this.api.getRelayHistory(this.id()).subscribe({
+      next: (rows) => this.relayHistory.set(rows),
+      error: () => this.relayHistory.set([]),
     });
   }
 
@@ -164,6 +236,8 @@ export class DeviceDetail {
         done();
       },
     });
+
+    this.loadRelayHistory();
 
     this.api.getDeviceHistory(this.id(), this.hours()).subscribe({
       next: (h) => {

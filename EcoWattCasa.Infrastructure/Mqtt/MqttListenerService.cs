@@ -70,35 +70,44 @@ public sealed class MqttListenerService(
             .WithTopicFilter(f => f
                 .WithTopic(_options.TelemetryTopicFilter)
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
+            .WithTopicFilter(f => f
+                .WithTopic(_options.RelayStateTopicFilter)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
             .Build();
 
         await connection.Client.SubscribeAsync(subscribeOptions, ct);
-        logger.LogInformation("Suscrito a {Filter}", _options.TelemetryTopicFilter);
+        logger.LogInformation(
+            "Suscrito a {Telemetry} y {RelayState}", _options.TelemetryTopicFilter, _options.RelayStateTopicFilter);
     }
 
     private async Task OnMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs e)
     {
         var topic = e.ApplicationMessage.Topic;
-        var deviceTopic = ExtractDeviceTopic(topic);
-        if (deviceTopic is null)
+        var routed = Route(topic);
+        if (routed is null)
         {
             logger.LogDebug("Topic inesperado, se ignora: {Topic}", topic);
             return;
         }
 
+        var (kind, deviceTopic) = routed.Value;
+
         try
         {
             // Payload es ReadOnlySequence<byte>: el caso normal es un solo segmento y no aloca.
             var payload = e.ApplicationMessage.Payload;
-            var json = payload.IsSingleSegment
+            var text = payload.IsSingleSegment
                 ? Encoding.UTF8.GetString(payload.FirstSpan)
                 : Encoding.UTF8.GetString(payload.ToArray());
 
             // El handler corre en el hilo del cliente MQTT: se abre un scope propio para
             // no compartir el DbContext entre mensajes.
             await using var scope = scopeFactory.CreateAsyncScope();
-            var ingestion = scope.ServiceProvider.GetRequiredService<EnergyIngestionService>();
-            await ingestion.IngestAsync(deviceTopic, json);
+
+            if (kind == TopicKind.Telemetry)
+                await scope.ServiceProvider.GetRequiredService<EnergyIngestionService>().IngestAsync(deviceTopic, text);
+            else
+                await scope.ServiceProvider.GetRequiredService<RelayStateService>().ApplyAsync(deviceTopic, text);
         }
         catch (Exception ex)
         {
@@ -108,10 +117,33 @@ public sealed class MqttListenerService(
         }
     }
 
-    /// <summary>De "tele/sonoff-pc/SENSOR" saca "sonoff-pc".</summary>
-    internal static string? ExtractDeviceTopic(string topic)
+    internal enum TopicKind
+    {
+        /// <summary>tele/{topic}/SENSOR: la telemetria de energia.</summary>
+        Telemetry,
+
+        /// <summary>stat/{topic}/POWER: el estado del rele que confirma el equipo.</summary>
+        RelayState
+    }
+
+    /// <summary>
+    /// De "tele/plug-pc/SENSOR" saca (Telemetry, "plug-pc"); de "stat/plug-pc/POWER" saca
+    /// (RelayState, "plug-pc"). null para cualquier otra cosa.
+    ///
+    /// Tasmota tambien publica stat/{topic}/RESULT con el mismo dato en JSON; se ignora a
+    /// proposito para no procesar el mismo cambio dos veces.
+    /// </summary>
+    internal static (TopicKind Kind, string DeviceTopic)? Route(string topic)
     {
         var parts = topic.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length == 3 && parts[0] == "tele" && parts[2] == "SENSOR" ? parts[1] : null;
+        if (parts.Length != 3)
+            return null;
+
+        return (parts[0], parts[2]) switch
+        {
+            ("tele", "SENSOR") => (TopicKind.Telemetry, parts[1]),
+            ("stat", "POWER") => (TopicKind.RelayState, parts[1]),
+            _ => null
+        };
     }
 }

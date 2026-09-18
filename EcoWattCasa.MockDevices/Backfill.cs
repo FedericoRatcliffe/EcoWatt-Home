@@ -12,7 +12,7 @@ namespace EcoWattCasa.MockDevices;
 /// </summary>
 internal static class Backfill
 {
-    public static async Task<int> RunAsync(SimulatedDevice[] devices, MockOptions options)
+    public static async Task<int> RunAsync(Fleet fleet, MockOptions options)
     {
         var dbOptions = new DbContextOptionsBuilder<EcoWattDbContext>()
             .UseNpgsql(options.ConnectionString)
@@ -40,49 +40,79 @@ internal static class Backfill
 
         Console.WriteLine($"Backfill de {options.BackfillDays} dia(s), una muestra cada {step.TotalMinutes:0} min.");
 
-        var pending = new List<EnergyReading>(capacity: 10_000);
-        var inserted = 0;
+        // Se resuelven todos los equipos antes de simular: el medidor mide la suma de los
+        // enchufes, asi que hay que avanzar la flota entera en cada paso de tiempo, no un
+        // equipo completo y despues el siguiente.
+        var targets = new List<(SimulatedDevice Device, Device Entity)>();
 
-        foreach (var device in devices)
+        foreach (var device in fleet.All)
         {
-            if (!registered.TryGetValue(device.Topic, out var entity))
-            {
+            if (registered.TryGetValue(device.Topic, out var entity))
+                targets.Add((device, entity));
+            else
                 Console.WriteLine($"  ! {device.Topic} no esta registrado en la base, se omite.");
-                continue;
-            }
+        }
 
-            // Se borra lo que hubiera en la ventana para que correr el backfill dos veces
-            // no duplique el consumo.
+        if (targets.Count == 0)
+        {
+            Console.WriteLine("Ningun dispositivo simulado esta en la base. Nada que rellenar.");
+            return 1;
+        }
+
+        // Se borra lo que hubiera en la ventana para que correr el backfill dos veces
+        // no duplique el consumo.
+        foreach (var (device, entity) in targets)
+        {
             var deleted = await db.EnergyReadings
                 .Where(r => r.DeviceId == entity.Id && r.Timestamp >= from && r.Timestamp <= to)
                 .ExecuteDeleteAsync();
 
             if (deleted > 0)
                 Console.WriteLine($"  {device.Topic}: {deleted} lecturas previas de la ventana borradas.");
+        }
 
-            for (var t = from; t < to; t += step)
+        var byTopic = targets.ToDictionary(t => t.Device.Topic, t => t.Entity, StringComparer.OrdinalIgnoreCase);
+        var pending = new List<EnergyReading>(capacity: 10_000);
+        var inserted = 0;
+
+        for (var t = from; t < to; t += step)
+        {
+            foreach (var (device, sample) in fleet.Step(step, t, rng))
             {
-                var sample = device.Step(step, t, rng);
+                if (!byTopic.TryGetValue(device.Topic, out var entity))
+                    continue;
+
+                // Se guarda el canal que tiene configurado el dispositivo, igual que hace
+                // la ingesta MQTT: en el EM2 el canal 1 no tiene pinza y no representa nada.
+                if (entity.ChannelIndex >= sample.Channels.Length)
+                {
+                    Console.WriteLine(
+                        $"  ! {device.Topic} apunta al canal {entity.ChannelIndex} pero simula " +
+                        $"{sample.Channels.Length}. Revisa ChannelIndex.");
+                    byTopic.Remove(device.Topic);
+                    continue;
+                }
+
+                var channel = sample.Channels[entity.ChannelIndex];
                 pending.Add(new EnergyReading
                 {
                     DeviceId = entity.Id,
                     Timestamp = t,
-                    Watts = sample.Watts,
+                    Watts = channel.Watts,
                     Voltage = sample.Voltage,
-                    Amperage = sample.Current,
-                    TotalKwh = sample.TotalKwh,
-                    TodayKwh = sample.TodayKwh,
-                    PowerFactor = sample.Factor,
+                    Amperage = channel.Current,
+                    TotalKwh = channel.TotalKwh,
+                    TodayKwh = channel.TodayKwh,
+                    PowerFactor = channel.Factor,
                     CreatedAt = t
                 });
-
-                if (pending.Count >= 5_000)
-                    inserted += await FlushAsync(db, pending);
             }
 
-            inserted += await FlushAsync(db, pending);
-            Console.WriteLine($"  {device.Topic}: listo.");
+            if (pending.Count >= 5_000)
+                inserted += await FlushAsync(db, pending);
         }
+
+        inserted += await FlushAsync(db, pending);
 
         Console.WriteLine($"Backfill terminado: {inserted} lecturas entre {from:yyyy-MM-dd HH:mm} y {to:yyyy-MM-dd HH:mm} UTC.");
         return 0;

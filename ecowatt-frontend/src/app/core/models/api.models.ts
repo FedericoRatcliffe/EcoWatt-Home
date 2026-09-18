@@ -1,20 +1,57 @@
 /** Espejo de los DTOs de EcoWattCasa.Application. */
 
-export type DeviceType = 'SonoffPowR2' | 'Esp32Sct013' | 'Simulated';
+/** Modelo de hardware: el medidor de riel DIN o el enchufe con relé. */
+export type DeviceType = 'AthomEm2' | 'AthomPlugV3';
+
+/** Qué mide: toda la casa desde el tablero, o un aparato puntual. */
+export type DeviceRole = 'HouseMeter' | 'Appliance';
 
 export interface Device {
   id: string;
   name: string;
-  /** Nombre de topic de Tasmota, sin prefijos: "sonoff-pc". */
+  /** Nombre de topic de Tasmota, sin prefijos: "plug-heladera". */
   mqttTopic: string;
   location: string;
   nominalWatts: number;
   type: DeviceType;
+  role: DeviceRole;
+  /** Canal de energía del payload. Los enchufes tienen uno solo; el EM2, dos. */
+  channelIndex: number;
   isActive: boolean;
   createdAt: string;
   /** Potencia de la ultima lectura reciente. null si no reporta hace mas de una hora. */
   currentWatts: number | null;
   lastSeenUtc: string | null;
+  /** El modelo tiene relé. El EM2 es sólo medición. */
+  hasRelay: boolean;
+  relayLocked: boolean;
+  /** Si el botón de encendido va habilitado. No incluye la ventana de tiempo mínimo. */
+  canToggleRelay: boolean;
+  minRelayIntervalSeconds: number;
+  /** Último estado conocido del relé. null = todavía no llegó ninguno. */
+  relayOn: boolean | null;
+  relayStateAt: string | null;
+}
+
+/** Estado del relé confirmado por el propio equipo en stat/{topic}/POWER. */
+export interface RelayState {
+  deviceId: string;
+  on: boolean;
+  atUtc: string;
+}
+
+/** Un intento de conmutar un relé, ejecutado o rechazado. */
+export interface RelayCommand {
+  deviceId: string;
+  deviceName: string;
+  requestedOn: boolean;
+  /** Dashboard | Automation | System. */
+  source: string;
+  /** Sent | BlockedLocked | BlockedTooSoon | BlockedNoRelay | Failed. */
+  outcome: string;
+  wasSent: boolean;
+  reason: string | null;
+  createdAt: string;
 }
 
 export interface DeviceInput {
@@ -23,6 +60,10 @@ export interface DeviceInput {
   location: string;
   nominalWatts: number;
   type: DeviceType;
+  role: DeviceRole;
+  channelIndex: number;
+  relayLocked: boolean;
+  minRelayIntervalSeconds: number;
   isActive?: boolean;
 }
 
@@ -56,6 +97,30 @@ export interface DeviceConsumption {
   cost: number;
   currentWatts: number | null;
   sharePercent: number;
+  /**
+   * No es un dispositivo: es el consumo de la casa que no pasa por ningún enchufe medido.
+   * Viene como una fila más para que el desglose sume el total, pero no tiene ficha propia.
+   */
+  isUnidentified: boolean;
+}
+
+/** Qué parte del consumo de la casa se mide enchufe por enchufe y qué parte no. */
+export interface HouseSplit {
+  houseKwh: number;
+  measuredKwh: number;
+  unidentifiedKwh: number;
+  measuredSharePercent: number;
+  /** Sin medidor de tablero el total es sólo la suma de los enchufes: mide de menos. */
+  hasMeter: boolean;
+  /** Los enchufes midieron más que el tablero: configuración mal puesta, no consumo. */
+  measuredExceedsHouse: boolean;
+  /** Potencia de toda la casa ahora. */
+  currentWatts: number;
+  /**
+   * Qué dispositivos componen el total. Hacen falta para actualizar la potencia de la casa
+   * con lo que llega por el hub: el medidor no tiene fila en el desglose.
+   */
+  meterDeviceIds: string[];
 }
 
 // ---------- Factura ----------
@@ -110,6 +175,7 @@ export interface DailyDashboard {
   marginalPricePerKwh: number;
   devices: DeviceConsumption[];
   hourly: HistoryPoint[];
+  house: HouseSplit;
 }
 
 export interface PeriodDashboard {
@@ -127,6 +193,7 @@ export interface PeriodDashboard {
   projection: Projection | null;
   devices: DeviceConsumption[];
   daily: HistoryPoint[];
+  house: HouseSplit;
 }
 
 export type AlertSeverity = 'Info' | 'Warning' | 'Critical';

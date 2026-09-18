@@ -117,6 +117,11 @@
                   <span class="dot" aria-hidden="true"></span>
                   tiempo real: {{ realtime.status() }}
                 </span>
+                @if (house(); as h) {
+                  @if (!h.hasMeter) {
+                    &middot; solo los enchufes
+                  }
+                }
               </div>
             </div>
             <div>
@@ -198,6 +203,21 @@
         <span class="muted">parte de la factura del periodo, segun sus kWh</span>
       </div>
 
+      @if (house(); as h) {
+        @if (h.measuredExceedsHouse) {
+          <div class="card notice warning">
+            Los enchufes midieron {{ kwh(h.measuredKwh) }} y el tablero {{ kwh(h.houseKwh) }}, que no
+            puede pasar: un enchufe no deberia consumir mas que toda la casa. Revisa en
+            <a routerLink="/config">Configuracion</a> que el canal de cada equipo sea el correcto.
+          </div>
+        } @else if (!h.hasMeter) {
+          <div class="card notice">
+            Sin medidor de tablero solo se ve lo que pasa por los enchufes, no el total de la casa.
+            Dalo de alta con rol "medidor de tablero" en <a routerLink="/config">Configuracion</a>.
+          </div>
+        }
+      }
+
       @if (cards().length === 0) {
         <div class="card empty">
           Todavia no hay dispositivos. Levanta el mock publisher o agregalos desde
@@ -206,7 +226,13 @@
       } @else {
         <section class="grid cards">
           @for (device of cards(); track device.deviceId) {
-            <a class="card device-card" [routerLink]="['/dispositivo', device.deviceId]">
+            <!-- El consumo no identificado no tiene ficha propia: sin routerLink el ancla
+                 queda inerte y fuera del orden de tabulacion, que es lo correcto. -->
+            <a
+              class="card device-card"
+              [class.unidentified]="device.isUnidentified"
+              [routerLink]="device.isUnidentified ? null : ['/dispositivo', device.deviceId]"
+            >
               <div class="device-head">
                 <span class="device-name">{{ device.name }}</span>
                 <span class="muted device-loc">{{ device.location }}</span>
@@ -216,7 +242,7 @@
 
               <div class="device-cost">{{ moneySmart(device.cost) }}</div>
               <div class="stat-sub">
-                {{ kwh(device.kwh) }} &middot; {{ percent(device.sharePercent, 0) }} de lo medido
+                {{ kwh(device.kwh) }} &middot; {{ percent(device.sharePercent, 0) }} de la casa
               </div>
 
               <!-- Barra de participacion: refuerza el numero, no lo reemplaza. -->
@@ -232,6 +258,12 @@
             Las cards suman {{ money(b.energyCost) }} de energia. Los {{ money(b.fixedCost) }} de
             cargo fijo, alumbrado publico y renovables no se reparten: se pagan aunque no consumas
             nada.
+            @if (house(); as h) {
+              @if (h.hasMeter) {
+                Los enchufes cubren {{ percent(h.measuredSharePercent, 0) }} del consumo de la casa;
+                el resto lo mide el tablero sin saber de donde sale.
+              }
+            }
           </p>
         }
       }

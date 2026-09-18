@@ -1,6 +1,7 @@
 using EcoWattCasa.Application.Common;
 using EcoWattCasa.Application.DTOs;
 using EcoWattCasa.Domain.Entities;
+using EcoWattCasa.Domain.Enums;
 using EcoWattCasa.Domain.Interfaces;
 using EcoWattCasa.Domain.ValueObjects;
 
@@ -74,28 +75,17 @@ public sealed class DashboardService(
         var latestReadings = await readings.GetLatestPerDeviceAsync(ct);
         var currentWatts = BuildCurrentWatts(latestReadings);
 
-        var consumptions = allDevices
-            .Select(d =>
-            {
-                var kwh = perDevice.TryGetValue(d.Id, out var t) ? t.Kwh : 0d;
-                return new DeviceConsumptionDto(
-                    d.Id,
-                    d.Name,
-                    d.Location,
-                    Math.Round(kwh, 4),
-                    Math.Round((decimal)kwh * dayPrice, 2),
-                    currentWatts.TryGetValue(d.Id, out var w) ? w : null,
-                    0d);
-            })
-            .ToList();
+        var (consumptions, house) = BuildBreakdown(
+            allDevices, perDevice, currentWatts, kwh => Math.Round((decimal)kwh * dayPrice, 2));
 
         return new DailyDashboardDto(
             date,
             Math.Round(dayKwh, 4),
             dayCost,
             bill.MarginalPricePerKwh,
-            WithShares(consumptions, dayKwh),
-            pricedHours);
+            consumptions,
+            pricedHours,
+            house);
     }
 
     /// <summary>
@@ -127,20 +117,8 @@ public sealed class DashboardService(
         var latestReadings = await readings.GetLatestPerDeviceAsync(ct);
         var currentWatts = BuildCurrentWatts(latestReadings);
 
-        var consumptions = allDevices
-            .Select(d =>
-            {
-                var kwh = perDevice.TryGetValue(d.Id, out var t) ? t.Kwh : 0d;
-                return new DeviceConsumptionDto(
-                    d.Id,
-                    d.Name,
-                    d.Location,
-                    Math.Round(kwh, 4),
-                    BillCalculator.AllocateToDevice(bill, kwh),
-                    currentWatts.TryGetValue(d.Id, out var w) ? w : null,
-                    0d);
-            })
-            .ToList();
+        var (consumptions, house) = BuildBreakdown(
+            allDevices, perDevice, currentWatts, kwh => BillCalculator.AllocateToDevice(bill, kwh));
 
         // Comparacion honesta: mientras el periodo esta abierto se compara contra el anterior
         // recortado a la misma cantidad de dias. Medio ciclo contra uno entero siempre da
@@ -168,8 +146,9 @@ public sealed class DashboardService(
             isPartial,
             change,
             BuildProjection(window, totalKwh, elapsed, history),
-            WithShares(consumptions, totalKwh),
-            pricedDays);
+            consumptions,
+            pricedDays,
+            house);
     }
 
     public async Task<DeviceHistoryDto?> GetDeviceHistoryAsync(
@@ -323,6 +302,79 @@ public sealed class DashboardService(
             .ToList();
 
     /// <summary>
+    /// Arma el desglose que ve el usuario: una fila por enchufe mas la del consumo que no pasa
+    /// por ninguno.
+    ///
+    /// El medidor de tablero no lleva fila propia: su lectura es la casa entera, asi que ponerlo
+    /// al lado de los enchufes dejaria a cada aparato con la mitad del porcentaje que le toca.
+    /// Lo no identificado ocupa su lugar y hace que el desglose sume el total.
+    /// </summary>
+    /// <param name="costOf">Como se cobran los kWh de una fila: depende del periodo.</param>
+    private static (List<DeviceConsumptionDto> Rows, HouseSplitDto House) BuildBreakdown(
+        IReadOnlyList<Device> allDevices,
+        Dictionary<Guid, DeviceTotals> perDevice,
+        Dictionary<Guid, double> currentWatts,
+        Func<double, decimal> costOf)
+    {
+        var kwhByDevice = perDevice.ToDictionary(kv => kv.Key, kv => kv.Value.Kwh);
+        var split = HouseConsumption.Split(allDevices, kwhByDevice);
+
+        var rows = HouseConsumption.Appliances(allDevices)
+            .Select(d =>
+            {
+                var kwh = kwhByDevice.TryGetValue(d.Id, out var v) ? v : 0d;
+                return new DeviceConsumptionDto(
+                    d.Id,
+                    d.Name,
+                    d.Location,
+                    Math.Round(kwh, 4),
+                    costOf(kwh),
+                    currentWatts.TryGetValue(d.Id, out var w) ? w : null,
+                    0d);
+            })
+            .ToList();
+
+        var meterIds = allDevices
+            .Where(d => d.IsActive && d.Role == DeviceRole.HouseMeter)
+            .Select(d => d.Id)
+            .ToList();
+
+        var applianceWatts = rows.Sum(r => r.CurrentWatts ?? 0d);
+
+        // Sin medidor, la potencia de la casa es lo unico que se mide: la suma de los enchufes.
+        var houseWatts = split.HasMeter
+            ? meterIds.Sum(id => currentWatts.TryGetValue(id, out var w) ? w : 0d)
+            : applianceWatts;
+
+        if (split.HasMeter)
+        {
+            rows.Add(new DeviceConsumptionDto(
+                Guid.Empty,
+                "Consumo no identificado",
+                "Resto de la casa",
+                Math.Round(split.UnidentifiedKwh, 4),
+                costOf(split.UnidentifiedKwh),
+                Math.Round(Math.Max(0d, houseWatts - applianceWatts), 2),
+                0d,
+                IsUnidentified: true));
+        }
+
+        var house = new HouseSplitDto(
+            Math.Round(split.HouseKwh, 4),
+            Math.Round(split.MeasuredKwh, 4),
+            Math.Round(split.UnidentifiedKwh, 4),
+            // Se topa en 100: cuando los enchufes superan al tablero el porcentaje no significa
+            // nada, y quien avisa del problema es MeasuredExceedsHouse, no un 1.689.739%.
+            split.HouseKwh > 0 ? Math.Round(Math.Min(100d, split.MeasuredKwh / split.HouseKwh * 100d), 2) : 0d,
+            split.HasMeter,
+            split.MeasuredExceedsHouse,
+            Math.Round(houseWatts, 2),
+            meterIds);
+
+        return (WithShares(rows, split.HouseKwh), house);
+    }
+
+    /// <summary>
     /// Los buckets llegan en hora UTC desde SQL. Aca se convierten a hora local y se agrupan
     /// por hora o por dia, acumulando de paso el consumo de cada dispositivo. El costo se
     /// completa despues, cuando ya se sabe en que tramo de la factura cae cada bucket.
@@ -335,6 +387,12 @@ public sealed class DashboardService(
         Dictionary<Guid, DeviceTotals>? perDeviceTotals)
     {
         var cumulativeByDevice = devices.ToDictionary(d => d.Id, d => d.ReportsCumulativeEnergy);
+
+        // Solo estos dispositivos forman la curva de la casa. Con el medidor de tablero
+        // instalado es unicamente el medidor: su lectura ya incluye a los enchufes, asi que
+        // sumar todo contaria dos veces lo que pasa por un enchufe medido.
+        var houseDevices = HouseConsumption.HouseSeriesDevices(devices);
+
         var folded = new Dictionary<DateTimeOffset, FoldedBucket>();
         var bucketDuration = TimeSpan.FromHours(1);
 
@@ -348,6 +406,17 @@ public sealed class DashboardService(
             var prefersCumulative = !cumulativeByDevice.TryGetValue(bucket.DeviceId, out var pc) || pc;
             var kwh = EnergyMath.ToKwh(bucket.Samples, prefersCumulative, bucketDuration);
 
+            if (perDeviceTotals is not null)
+            {
+                if (!perDeviceTotals.TryGetValue(bucket.DeviceId, out var totals))
+                    perDeviceTotals[bucket.DeviceId] = totals = new DeviceTotals();
+
+                totals.Kwh += kwh;
+            }
+
+            if (!houseDevices.Contains(bucket.DeviceId))
+                continue;
+
             if (!folded.TryGetValue(key, out var acc))
                 folded[key] = acc = new FoldedBucket();
 
@@ -358,14 +427,6 @@ public sealed class DashboardService(
             acc.WattsSum += bucket.Samples.AvgWatts;
             acc.SourceHours.Add(bucket.BucketStartUtc);
             acc.MaxWatts = Math.Max(acc.MaxWatts, bucket.Samples.MaxWatts);
-
-            if (perDeviceTotals is not null)
-            {
-                if (!perDeviceTotals.TryGetValue(bucket.DeviceId, out var totals))
-                    perDeviceTotals[bucket.DeviceId] = totals = new DeviceTotals();
-
-                totals.Kwh += kwh;
-            }
         }
 
         return folded

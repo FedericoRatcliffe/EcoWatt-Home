@@ -12,6 +12,7 @@ import {
   EnergyReading,
   ImportedBill,
   PeriodDashboard,
+  RelayCommand,
   TariffInput,
   TariffSchedule,
 } from '../models/api.models';
@@ -63,6 +64,13 @@ export class EcowattApi {
 
   setPower(id: string, on: boolean): Observable<unknown> {
     return this.http.post(`/api/devices/${id}/power`, { on });
+  }
+
+  /** Intentos de conmutar el relé, incluidos los que la guarda rechazó. */
+  getRelayHistory(id: string, limit = 20): Observable<RelayCommand[]> {
+    return this.http.get<RelayCommand[]>(`/api/devices/${id}/relay-history`, {
+      params: new HttpParams().set('limit', limit),
+    });
   }
 
   getDaily(date?: string): Observable<DailyDashboard> {

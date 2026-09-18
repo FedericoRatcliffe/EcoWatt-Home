@@ -25,10 +25,10 @@ public sealed class RollupOptions
 /// <summary>
 /// Consolida las lecturas crudas en horas y borra las crudas viejas.
 ///
-/// Con tres enchufes reportando cada 10 s entran 25.920 filas por dia: sin esto, en un año la
-/// tabla llega a ~9,5 M de filas y consultar un mes obliga a escanear cientos de miles cada
-/// vez que el dashboard refresca. Consolidado, un mes son ~2.200 filas y las crudas quedan
-/// acotadas a la ventana de retencion.
+/// Con los cinco equipos reportando cada 30 s (el TelePeriod recomendado) entran 14.400 filas
+/// por dia: sin esto, en un ano la tabla llega a ~5,3 M de filas y consultar un mes obliga a
+/// escanear cientos de miles cada vez que el dashboard refresca. Consolidado, un mes son
+/// ~3.700 filas y las crudas quedan acotadas a la ventana de retencion.
 ///
 /// Es seguro correrlo muchas veces: consolidar no pisa horas ya hechas, y el borrado solo
 /// toca lecturas cuya hora ya quedo guardada.

@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
-import { Device, EnergyReading } from '../models/api.models';
+import { Device, EnergyReading, RelayState } from '../models/api.models';
 
 export type RealtimeStatus = 'desconectado' | 'conectando' | 'conectado';
 
@@ -23,6 +23,12 @@ export class Realtime {
   /** Se incrementa cuando el backend auto-registra un dispositivo nuevo. */
   readonly newDeviceCount = signal(0);
 
+  /**
+   * Estado del relé por deviceId, tal como lo confirmó el equipo. Incluye los cambios hechos
+   * con el botón físico del enchufe, que el backend nunca pidió.
+   */
+  readonly relayByDevice = signal<Record<string, RelayState>>({});
+
   async start(): Promise<void> {
     if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
       return;
@@ -44,6 +50,10 @@ export class Realtime {
 
     this.connection.on('deviceRegistered', (_device: Device) => {
       this.newDeviceCount.update((n) => n + 1);
+    });
+
+    this.connection.on('relayStateChanged', (state: RelayState) => {
+      this.relayByDevice.update((current) => ({ ...current, [state.deviceId]: state }));
     });
 
     this.connection.onreconnecting(() => this.status.set('conectando'));

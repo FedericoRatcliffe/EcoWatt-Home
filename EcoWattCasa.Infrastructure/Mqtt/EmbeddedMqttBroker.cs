@@ -53,7 +53,7 @@ public sealed class EmbeddedMqttBroker(
         {
             await _server.StartAsync();
             logger.LogInformation(
-                "Broker MQTT embebido escuchando en 0.0.0.0:{Port}. Apuntá los Sonoff a la IP de esta PC.",
+                "Broker MQTT embebido escuchando en 0.0.0.0:{Port}. Configura MqttHost en cada equipo Tasmota con la IP de esta PC.",
                 _options.Port);
         }
         catch (Exception ex)
@@ -62,7 +62,7 @@ public sealed class EmbeddedMqttBroker(
             // la API; el listener se va a conectar a ese broker igual.
             logger.LogWarning(ex,
                 "No se pudo levantar el broker embebido en el puerto {Port}. " +
-                "Si ya tenés un broker corriendo ahí, poné \"Mqtt:Embedded\": false para no intentarlo.",
+                "Si ya hay un broker corriendo ahi, pone \"Mqtt:Embedded\": false para no intentarlo.",
                 _options.Port);
 
             await DisposeServerAsync();

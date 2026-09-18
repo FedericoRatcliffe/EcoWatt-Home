@@ -19,6 +19,12 @@ public sealed class MqttOptions
     /// <summary>Wildcard de telemetria de Tasmota. Un nivel + por dispositivo.</summary>
     public string TelemetryTopicFilter { get; set; } = "tele/+/SENSOR";
 
+    /// <summary>
+    /// Wildcard del estado del rele. Tasmota lo publica ante cada comando, al arrancar y
+    /// cuando alguien aprieta el boton fisico del enchufe.
+    /// </summary>
+    public string RelayStateTopicFilter { get; set; } = "stat/+/POWER";
+
     /// <summary>Segundos entre reintentos cuando el broker no esta disponible.</summary>
     public int ReconnectDelaySeconds { get; set; } = 5;
 

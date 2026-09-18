@@ -7,10 +7,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { Realtime } from '../../core/services/realtime';
 import { Dashboard } from './dashboard';
 
-/** Doble del hub: el test no abre WebSockets. */
+/**
+ * Doble del hub: el test no abre WebSockets.
+ * 'meter-1' es el medidor de tablero, que mide toda la casa e incluye a los enchufes.
+ */
 const realtimeStub = {
   status: signal('conectado'),
-  wattsByDevice: signal<Record<string, number>>({ 'dev-1': 275.5 }),
+  wattsByDevice: signal<Record<string, number>>({ 'dev-1': 275.5, 'meter-1': 800 }),
   lastReading: signal(null),
   newDeviceCount: signal(0),
   start: async () => {},
@@ -27,6 +30,16 @@ const daily = {
     { bucketLocal: '2026-09-13T00:00:00-03:00', kwh: 0.14, cost: 48.45, avgWatts: 140, maxWatts: 450 },
     { bucketLocal: '2026-09-13T01:00:00-03:00', kwh: 0.12, cost: 41.53, avgWatts: 120, maxWatts: 300 },
   ],
+  house: {
+    houseKwh: 3.16,
+    measuredKwh: 1.9,
+    unidentifiedKwh: 1.26,
+    measuredSharePercent: 60.1,
+    hasMeter: true,
+    measuredExceedsHouse: false,
+    currentWatts: 780,
+    meterDeviceIds: ['meter-1'],
+  },
 };
 
 /** Cifras tomadas de la factura real 09/2026, para que el test hable el idioma del dominio. */
@@ -74,7 +87,8 @@ const period = {
       kwh: 50,
       cost: 19074.25,
       currentWatts: 0,
-      sharePercent: 56,
+      sharePercent: 28.6,
+      isUnidentified: false,
     },
     {
       deviceId: 'dev-2',
@@ -83,10 +97,32 @@ const period = {
       kwh: 33,
       cost: 12589,
       currentWatts: 3,
-      sharePercent: 33.1,
+      sharePercent: 18.9,
+      isUnidentified: false,
+    },
+    // El resto de la casa: lo que mide el tablero y no pasa por ningun enchufe.
+    {
+      deviceId: '00000000-0000-0000-0000-000000000000',
+      name: 'Consumo no identificado',
+      location: 'Resto de la casa',
+      kwh: 92,
+      cost: 35096.63,
+      currentWatts: 500,
+      sharePercent: 52.6,
+      isUnidentified: true,
     },
   ],
   daily: [{ bucketLocal: '2026-07-02T00:00:00-03:00', kwh: 6, cost: 2075, avgWatts: 250, maxWatts: 900 }],
+  house: {
+    houseKwh: 175,
+    measuredKwh: 83,
+    unidentifiedKwh: 92,
+    measuredSharePercent: 47.4,
+    hasMeter: true,
+    measuredExceedsHouse: false,
+    currentWatts: 780,
+    meterDeviceIds: ['meter-1'],
+  },
 };
 
 /**
@@ -95,6 +131,22 @@ const period = {
  */
 function visibleText(element: HTMLElement): string {
   return (element.textContent ?? '').replace(/[  ]/g, ' ');
+}
+
+/**
+ * jsdom no tiene canvas, asi que ECharts revienta al pintar. Se muestran las tablas en vez
+ * de los graficos, que ademas es la version del dashboard que se puede leer como texto.
+ */
+function showTablesInsteadOfCharts(fixture: { componentInstance: unknown }): void {
+  const component = fixture.componentInstance as {
+    showDeviceTable: { set(v: boolean): void };
+    showHourlyTable: { set(v: boolean): void };
+    showDailyTable: { set(v: boolean): void };
+  };
+
+  component.showDeviceTable.set(true);
+  component.showHourlyTable.set(true);
+  component.showDailyTable.set(true);
 }
 
 describe('Dashboard', () => {
@@ -138,17 +190,9 @@ describe('Dashboard', () => {
     const fixture = TestBed.createComponent(Dashboard);
     flushAll();
 
-    // Se abre el detalle y las tablas: jsdom no tiene canvas, asi que ECharts no puede pintar.
-    const component = fixture.componentInstance as unknown as {
-      showDeviceTable: { set(v: boolean): void };
-      showHourlyTable: { set(v: boolean): void };
-      showDailyTable: { set(v: boolean): void };
-      showBillDetail: { set(v: boolean): void };
-    };
-    component.showDeviceTable.set(true);
-    component.showHourlyTable.set(true);
-    component.showDailyTable.set(true);
-    component.showBillDetail.set(true);
+    showTablesInsteadOfCharts(fixture);
+    (fixture.componentInstance as unknown as { showBillDetail: { set(v: boolean): void } })
+      .showBillDetail.set(true);
 
     await fixture.whenStable();
     const text = visibleText(fixture.nativeElement as HTMLElement);
@@ -182,6 +226,65 @@ describe('Dashboard', () => {
     // La alerta se muestra con la palabra de severidad, no solo con color.
     expect(text).toContain('Atencion');
     expect(text).toContain('Vas a cruzar los 150 kWh');
+  });
+
+  it('toma el consumo de la casa del medidor de tablero y no de la suma de los enchufes', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    flushAll();
+    showTablesInsteadOfCharts(fixture);
+    await fixture.whenStable();
+
+    const text = visibleText(fixture.nativeElement as HTMLElement);
+
+    // El medidor marca 800 W en vivo y eso es la casa entera, no los 278,5 W que suman los
+    // enchufes: la lectura del tablero ya los incluye.
+    expect(text).toContain('800 W');
+  });
+
+  it('muestra el consumo no identificado como una fila mas, pero sin ficha propia', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    flushAll();
+    showTablesInsteadOfCharts(fixture);
+    await fixture.whenStable();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(visibleText(element)).toContain('Consumo no identificado');
+
+    // 800 W del tablero menos los 278,5 W de los enchufes: se recalcula en vivo, no se
+    // muestra el 500 que trajo la API.
+    expect(visibleText(element)).toContain('522 W');
+
+    // No hay pagina de detalle para algo que no es un dispositivo: la card no navega.
+    const cards = Array.from(element.querySelectorAll('.device-card'));
+    const unidentified = cards.find((c) => (c.textContent ?? '').includes('Consumo no identificado'));
+
+    expect(unidentified).toBeTruthy();
+    expect(unidentified!.getAttribute('href')).toBeNull();
+  });
+
+  it('avisa cuando los enchufes miden mas que el tablero', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+
+    http.expectOne((r) => r.url === '/api/dashboard/cycle').flush({
+      anchor: '2026-07-31',
+      cycleDays: 30,
+      fromBill: true,
+      source: 'fecha de lectura de la ultima factura importada',
+    });
+    http.expectOne((r) => r.url === '/api/dashboard/daily').flush(daily);
+    http.expectOne((r) => r.url === '/api/dashboard/period').flush({
+      ...period,
+      house: { ...period.house, measuredKwh: 200, measuredExceedsHouse: true },
+    });
+    http.expectOne((r) => r.url === '/api/alerts').flush([]);
+
+    showTablesInsteadOfCharts(fixture);
+    await fixture.whenStable();
+    const text = visibleText(fixture.nativeElement as HTMLElement);
+
+    // Es un problema de configuracion, no de consumo: hay que decir donde se arregla.
+    expect(text).toContain('no puede pasar');
+    expect(text).toContain('Configuracion');
   });
 
   it('avisa cuando la API no responde', async () => {

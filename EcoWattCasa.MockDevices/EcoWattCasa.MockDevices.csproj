@@ -16,4 +16,10 @@
     <ProjectReference Include="..\EcoWattCasa.Infrastructure\EcoWattCasa.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Los perfiles de carga son internal: los tests verifican que lo que publica el mock
+         sea lo mismo que sabe leer el parser, sin tener que exponerlos al resto. -->
+    <InternalsVisibleTo Include="EcoWattCasa.Tests" />
+  </ItemGroup>
+
 </Project>

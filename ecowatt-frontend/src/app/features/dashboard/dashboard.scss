@@ -101,6 +101,23 @@
   }
 }
 
+// El consumo no identificado no es un aparato: no lleva ficha, asi que tampoco tiene que
+// invitar al clic. Se distingue por el borde punteado, no solo por el color.
+.device-card.unidentified {
+  border-style: dashed;
+  cursor: default;
+
+  &:hover {
+    border-color: $border-default;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .share span {
+    background: $text-faint;
+  }
+}
+
 .device-head {
   display: flex;
   align-items: baseline;
@@ -172,6 +189,19 @@ table.bill tr.total td {
 table.bill tr.total td {
   font-size: 0.95rem;
   color: $blue-700;
+}
+
+// Aviso de configuracion, no de consumo: va antes de las cards porque cambia como leerlas.
+.notice {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  border-left: 3px solid $blue-600;
+
+  &.warning {
+    border-left-color: $amber;
+  }
 }
 
 .footnote {

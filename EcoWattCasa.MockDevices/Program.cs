@@ -4,8 +4,8 @@ using EcoWattCasa.MockDevices;
 using MQTTnet;
 using MQTTnet.Protocol;
 
-// Publisher MQTT falso: hace de tres Sonoff POW R2 con Tasmota para poder desarrollar
-// el sistema completo antes de tener el hardware.
+// Publisher MQTT falso: hace de los cinco equipos Athom comprados (el medidor de tablero y
+// los cuatro enchufes) para poder desarrollar el sistema completo antes de tener el hardware.
 //
 //   dotnet run --project EcoWattCasa.MockDevices
 //   dotnet run --project EcoWattCasa.MockDevices -- --interval 5
@@ -22,42 +22,17 @@ if (options.ShowHelp)
     return 0;
 }
 
-var devices = BuildDevices();
+var fleet = Fleet.Build();
 
 if (options.BackfillDays > 0)
-    return await Backfill.RunAsync(devices, options);
+    return await Backfill.RunAsync(fleet, options);
 
-return await RunLiveAsync(devices, options);
+return await RunLiveAsync(fleet, options);
 
-static SimulatedDevice[] BuildDevices()
-{
-    // El contador acumulado arranca con historia, como un enchufe que ya venia enchufado.
-    var totalStart = DateTimeOffset.UtcNow.AddMonths(-3);
-
-    // Los perfiles estan calibrados contra las facturas reales de la casa: ~175 kWh/mes para
-    // toda la casa (243 W promedio). Estos tres suman ~3,2 kWh/dia (~95 kWh/mes), algo mas de
-    // la mitad del total, que es lo que se espera al medir solo algunos enchufes.
-    return
-    [
-        // PC con monitores: reposo bajo y picos cuando compila o juega. ~1,7 kWh/dia.
-        new SimulatedDevice("sonoff-pc", new RandomWalkProfile(idleWatts: 65, minWatts: 35, maxWatts: 240), totalStart),
-
-        // Heladera: compresor 14 min prendido a 130 W, 26 min en reposo. ~1,1 kWh/dia.
-        new SimulatedDevice("sonoff-heladera",
-            new DutyCycleProfile(TimeSpan.FromMinutes(14), TimeSpan.FromMinutes(26), wattsOn: 130, wattsOff: 2),
-            totalStart),
-
-        // Lavarropas: un ciclo de 45 min por dia y el resto en standby. ~0,36 kWh/dia.
-        new SimulatedDevice("sonoff-lavarropas",
-            new DutyCycleProfile(TimeSpan.FromMinutes(45), TimeSpan.FromMinutes(1395), wattsOn: 450, wattsOff: 1),
-            totalStart)
-    ];
-}
-
-static async Task<int> RunLiveAsync(SimulatedDevice[] devices, MockOptions options)
+static async Task<int> RunLiveAsync(Fleet fleet, MockOptions options)
 {
     var rng = new Random(options.Seed);
-    var byTopic = devices.ToDictionary(d => d.Topic, StringComparer.OrdinalIgnoreCase);
+    var byTopic = fleet.All.ToDictionary(d => d.Topic, StringComparer.OrdinalIgnoreCase);
 
     using var cts = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) =>
@@ -84,6 +59,13 @@ static async Task<int> RunLiveAsync(SimulatedDevice[] devices, MockOptions optio
         if (!byTopic.TryGetValue(parts[1], out var device))
             return;
 
+        if (!device.HasRelay)
+        {
+            // El EM2 no tiene rele. El equipo real simplemente no responderia.
+            Console.WriteLine($"  cmnd {device.Topic} <- ignorado: el medidor no tiene rele");
+            return;
+        }
+
         var payload = e.ApplicationMessage.Payload;
         var command = (payload.IsSingleSegment
             ? Encoding.UTF8.GetString(payload.FirstSpan)
@@ -106,7 +88,7 @@ static async Task<int> RunLiveAsync(SimulatedDevice[] devices, MockOptions optio
     };
 
     Console.WriteLine($"EcoWatt mock -> broker {options.Host}:{options.Port}, cada {options.IntervalSeconds}s");
-    Console.WriteLine($"Dispositivos: {string.Join(", ", devices.Select(d => d.Topic))}");
+    Console.WriteLine($"Dispositivos: {string.Join(", ", fleet.All.Select(d => d.Topic))}");
     Console.WriteLine("Ctrl+C para cortar.\n");
 
     var interval = TimeSpan.FromSeconds(options.IntervalSeconds);
@@ -130,14 +112,24 @@ static async Task<int> RunLiveAsync(SimulatedDevice[] devices, MockOptions optio
             }
 
             var now = DateTimeOffset.Now;
-            foreach (var device in devices)
+            var plugWatts = 0d;
+
+            foreach (var (device, sample) in fleet.Step(interval, now, rng))
             {
-                var sample = device.Step(interval, now, rng);
                 await PublishAsync(client, device.TelemetryTopic, device.ToTasmotaJson(sample), cts.Token);
-                Console.WriteLine($"{now:HH:mm:ss}  {device.Topic,-20} {sample.Watts,7:0.0} W  total {sample.TotalKwh,8:0.000} kWh{(device.RelayOn ? "" : "  [apagado]")}");
+
+                if (device.HasRelay)
+                    plugWatts += sample.Watts;
+
+                var totalKwh = sample.Channels.Sum(c => c.TotalKwh);
+                var off = device.HasRelay && !device.RelayOn ? "  [apagado]" : "";
+                Console.WriteLine(
+                    $"{now:HH:mm:ss}  {device.Topic,-16} {sample.Watts,7:0.0} W  total {totalKwh,8:0.000} kWh{off}");
             }
 
-            Console.WriteLine();
+            // Lo mismo que va a mostrar el dashboard: total del tablero menos los enchufes.
+            // Si alguna vez sale negativo, hay un error en la simulacion.
+            Console.WriteLine($"{"",10}{"no identificado",-16} {fleet.Meter.LastWatts - plugWatts,7:0.0} W\n");
         }
         catch (OperationCanceledException)
         {

@@ -1,10 +1,11 @@
 # EcoWatt Casa
 
-Monitoreo del consumo eléctrico del hogar. Los enchufes Sonoff POW R2 con Tasmota publican
-telemetría por MQTT, la API la persiste en PostgreSQL y el dashboard Angular muestra kWh y
-costo en pesos por día y por mes.
+Monitoreo del consumo eléctrico del hogar, en Venado Tuerto. Un medidor Athom EM2 en el tablero
+mide el total de la casa y cuatro enchufes Athom miden aparato por aparato; todos con Tasmota,
+publicando por MQTT. La API persiste en PostgreSQL y el dashboard Angular muestra kWh y costo en
+pesos por día y por ciclo de facturación, con la tarifa por tramos de la cooperativa.
 
-Stack: .NET 10 (Clean Architecture) · Angular 22 · PostgreSQL 17 · Mosquitto 2 · SignalR · ECharts.
+Stack: .NET 10 (Clean Architecture) · Angular 22 · PostgreSQL 17 · MQTT (broker embebido) · SignalR · ECharts.
 
 ---
 
@@ -17,7 +18,7 @@ docker compose up -d postgres
 # 2. API: migra, siembra, y levanta su propio broker MQTT en el puerto 1883
 dotnet run --project EcoWattCasa.API            # http://localhost:5080
 
-# 3. Dispositivos simulados: publica cada 10 s por MQTT
+# 3. Los cinco equipos simulados: publican cada 10 s por MQTT
 dotnet run --project EcoWattCasa.MockDevices
 
 # 4. Frontend
@@ -25,7 +26,7 @@ cd ecowatt-frontend && npm start                # http://localhost:4200
 ```
 
 No hace falta instalar Mosquitto: la API trae un **broker MQTT embebido** que escucha en
-`0.0.0.0:1883` y arranca y para con ella. Los Sonoff se conectan ahí igual que a un broker
+`0.0.0.0:1883` y arranca y para con ella. Los equipos se conectan ahí igual que a un broker
 externo. Para usar uno propio, poné `"Mqtt:Embedded": false` y apuntá `Mqtt:Host` a su IP.
 
 Para tener los gráficos con datos desde el primer minuto, generá historia antes de levantar el
@@ -69,7 +70,7 @@ La API aplica las migraciones sola al arrancar.
 | `EcoWattCasa.Application` | Casos de uso (`DashboardService`, `DeviceService`, `TariffService`, `EnergyIngestionService`), DTOs, contrato del JSON de Tasmota, cálculo de energía y costo. |
 | `EcoWattCasa.Infrastructure` | EF Core + PostgreSQL, repositorios, listener MQTT (`BackgroundService`), publisher de comandos, migraciones, seed. |
 | `EcoWattCasa.API` | Controladores REST, hub SignalR, CORS, OpenAPI (Scalar en `/scalar`). |
-| `EcoWattCasa.MockDevices` | Consola: tres Sonoff simulados (calibrados contra las facturas reales, ~95 kWh/mes) + modo `--backfill`. |
+| `EcoWattCasa.MockDevices` | Consola: los cinco equipos simulados (calibrados contra las facturas reales, ~247 W promedio) + modo `--backfill`. El canal del medidor es la suma de los enchufes más una línea de base, así el consumo no identificado nunca da negativo. |
 | `ecowatt-frontend` | Angular 22 standalone/zoneless con signals, ECharts, cliente SignalR. Sistema visual portado del dashboard de la Ticketera. |
 
 ---
@@ -110,7 +111,8 @@ Dos cosas que **no** se copiaron, a propósito:
 | DELETE | `/api/devices/{id}` | Borra el dispositivo y sus lecturas |
 | GET | `/api/devices/{id}/readings?from=&to=&maxPoints=` | Lecturas crudas |
 | GET | `/api/devices/{id}/history?hours=24` | Historial agregado con costo (≤48 h por hora, más por día) |
-| POST | `/api/devices/{id}/power` | `{ "on": true }` → publica `cmnd/{topic}/POWER` |
+| POST | `/api/devices/{id}/power` | `{ "on": true }` → publica `cmnd/{topic}/POWER`. `409` si la guarda del relé lo rechaza, `503` si el broker no está |
+| GET | `/api/devices/{id}/relay-history` | Intentos de conmutación, incluidos los rechazados |
 | GET | `/api/dashboard/daily?date=` | Consumo y costo del día por dispositivo + curva horaria |
 | GET | `/api/dashboard/period?cycle=&offset=` | La factura del período reconstruida, con desglose por dispositivo |
 | GET | `/api/dashboard/cycle` | Dónde está anclado el ciclo y de qué dato salió |
@@ -119,7 +121,7 @@ Dos cosas que **no** se copiaron, a propósito:
 | POST | `/api/tariff/import` | Sube el PDF de la factura y carga tarifas + comprobante |
 | GET | `/api/tariff/bills` | Facturas reales ya importadas |
 | GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta |
-| — | `/hubs/energy` | Hub SignalR: eventos `readingReceived`, `deviceRegistered` |
+| — | `/hubs/energy` | Hub SignalR: eventos `readingReceived`, `deviceRegistered`, `relayStateChanged` |
 
 ---
 
@@ -132,7 +134,7 @@ pierden mensajes MQTT. Los deltas horarios son aditivos, así que el día y el m
 partir de ellos (y un contador reseteado ensucia una hora, no el mes entero). La integración `watts/1000 × horas` queda como respaldo, para el ESP32 con
 SCT-013 que no lleva acumulado, o si el contador se resetea.
 
-**Los timestamps los pone el servidor.** Un Sonoff que se reinicia pierde la hora, y un reloj
+**Los timestamps los pone el servidor.** Un equipo que se reinicia pierde la hora, y un reloj
 corrido rompe el orden de las series. El campo `Time` de Tasmota se ignora a propósito.
 
 **Todo se guarda en UTC (`timestamptz`) y se agrega en hora de Buenos Aires.** Las ventanas
@@ -189,7 +191,7 @@ diferencia máxima fue **$0,67 sobre $82.180** (0,0008%), que es el redondeo a p
 hace la cooperativa en dos conceptos.
 
 **El delta del contador se toma en orden temporal, no como MAX-MIN.** Si el medidor volvió a
-cero dentro de la ventana (Sonoff reflasheado, `EnergyReset`, o el mock reiniciado), el delta
+cero dentro de la ventana (equipo reflasheado, `EnergyReset`, o el mock reiniciado), el delta
 sale negativo y ese bucket cae a la integración en vez de facturar el salto como consumo. Un
 segundo control descarta deltas que superen lo que físicamente cabe en la ventana (30 kW).
 
@@ -236,38 +238,202 @@ un historial: así no hay que resolver acuses de recibo ni alertas rancias. Hay 
 Las reglas son una función pura del estado (`AlertRules`): reciben el contexto ya armado, sin
 base ni reloj, y por eso cada caso tiene su test.
 
-**Un topic desconocido se auto-registra.** Si llega telemetría de `tele/sonoff-nuevo/SENSOR`
-sin dispositivo en la base, se crea solo (y se avisa por SignalR). Enchufar un Sonoff nuevo
-lo hace aparecer en el dashboard; después se le corrige el nombre desde Configuración.
+**Un topic desconocido se auto-registra**, siempre como enchufe. Si llega telemetría de
+`tele/plug-nuevo/SENSOR` sin dispositivo en la base, se crea solo (y se avisa por SignalR):
+enchufar un equipo nuevo lo hace aparecer en el dashboard, y después se le corrige el nombre
+desde Configuración.
+
+Se registra como aparato aunque el payload venga de un medidor de tablero, y eso es
+deliberado: uno marcado por error como medidor **corrompe el total de la casa**, mientras que
+uno marcado de más como aparato sólo sobra en el desglose. El rol se corrige a mano.
 
 ---
 
-## Del mock al hardware real
+## El hardware
 
-1. En cada Sonoff, por la consola de Tasmota:
-   ```
-   Backlog MqttHost 192.168.0.27; MqttPort 1883; Topic sonoff-pc; TelePeriod 10
-   ```
-   `MqttHost` es la IP de esta PC en la LAN — verificala con `ipconfig`, y conviene fijarla por
-   DHCP en el router para que no cambie. `Topic` es el que se registra en la app (sin `tele/`
-   ni `cmnd/`). `TelePeriod 10` es el intervalo de telemetría en segundos; el mínimo que acepta
-   Tasmota es 10.
-2. Cortar el mock (`Ctrl+C`, o `docker compose stop mock`).
-3. En Configuración, cambiar el tipo de los dispositivos de `Simulated` a `SonoffPowR2`,
-   o registrarlos nuevos con el topic real.
+Cinco equipos Athom, todos con Tasmota de fábrica y hablando MQTT. No hay más de un formato de
+payload en el sistema: **todo es Tasmota**.
 
-El broker embebido escucha en todas las interfaces, así que los dispositivos de la LAN llegan
-sin configuración extra. Lo que sí hay que abrir es el **puerto 1883 en el firewall de Windows**
+| Equipo | Qué es | Dónde va | Relé |
+|---|---|---|---|
+| 1× **Athom EM2** "2 CH Energy Meter" | ESP32‑C3 de riel DIN, 1 canal de tensión y 2 de corriente | Tablero principal, sobre la acometida | No |
+| 4× **Athom Plug V3** (PG05V3‑AU16A‑TAS) | Enchufe con medición y relé, ficha AU compatible con IRAM 2073 | Heladera, PC, lavarropas, uno libre | Sí |
+
+Instalación monofásica 220 V / 50 Hz. El tablero principal y el sub‑tablero están en lugares
+distintos, así que **no se mide por circuito**: se mide el total de la casa y algunos aparatos.
+
+### Por qué el medidor de tablero
+
+La tarifa es por tramos sobre el consumo de **toda la casa**. Midiendo sólo enchufes se ve
+alrededor de la mitad del consumo, y una alerta de "vas a cruzar los 150 kWh" calculada sobre
+media casa no sirve para nada. El EM2 aporta el total real; los enchufes explican de dónde sale.
+
+El EM2 se compró con **una sola pinza CT**, así que su segundo canal reporta cero. El sistema
+lo soporta igual: cada dispositivo tiene un `ChannelIndex` configurable.
+
+### Pendiente: el cuarto enchufe
+
+`plug-libre` está dado de alta, mide y aparece en el dashboard, pero todavía no tiene nada
+conectado: figura en "Sin asignar" y reporta 0 W. Queda así **a propósito**, hasta decidir qué
+conviene medir con él.
+
+Para asignarlo no hace falta tocar código: en Configuración se le cambia el nombre, la
+ubicación y la potencia nominal. El `Topic` de Tasmota puede quedar como está — lo que se ve en
+pantalla es el nombre, no el topic.
+
+Candidatos razonables, por lo que aportarían al desglose: termotanque eléctrico si lo hubiera,
+aire acondicionado, microondas, o el televisor. Conviene elegir algo que hoy esté cayendo dentro
+del consumo no identificado y que valga la pena separar.
+
+### Consumo no identificado
+
+Como el medidor mide la acometida, su lectura **ya incluye** a los enchufes. El total de la
+casa sale del medidor, nunca de la suma de dispositivos, y la diferencia se muestra como
+**consumo no identificado**: luces, termotanque, lo que esté enchufado en cualquier otro lado.
+Es lo que hace que el desglose sume exactamente el total.
+
+Si los enchufes llegaran a medir más que el tablero, el dashboard lo avisa: es físicamente
+imposible, y significa que hay un canal mal configurado o un enchufe colgado de un circuito que
+el medidor no ve.
+
+---
+
+## Puesta en marcha de cada equipo
+
+Los equipos vienen con Tasmota instalado. Lo único que hay que hacer es darles red y decirles
+a qué broker hablar.
+
+### 1. Conectarlo a la WiFi
+
+Al encenderlo por primera vez levanta un access point propio llamado **`tasmota-XXXX`**.
+
+1. Conectarse a esa red desde el celular o la notebook.
+2. Se abre sola la pantalla de configuración (si no, ir a `192.168.4.1`).
+3. Cargar el SSID y la contraseña de la WiFi de casa y guardar.
+4. El equipo se reinicia y se conecta. Su nueva IP aparece en el router.
+
+> La WiFi de casa tiene que ser **2,4 GHz**: el ESP32‑C3 no ve las redes de 5 GHz. Si el router
+> publica una sola red con las dos bandas, puede hacer falta separarlas temporalmente.
+
+### 2. Apuntarlo al broker
+
+Desde la consola de Tasmota (**Consola** en su página web), una sola línea:
+
+```
+Backlog MqttHost 192.168.0.27; MqttPort 1883; Topic plug-heladera; TelePeriod 30
+```
+
+- **`MqttHost`** — la IP de la PC donde corre la API. Verificala con `ipconfig` y fijala por
+  DHCP en el router, porque si cambia los equipos dejan de reportar.
+- **`Topic`** — el nombre del dispositivo, sin los prefijos `tele/`, `stat/` ni `cmnd/`. Tiene
+  que coincidir con el que figura en Configuración. Los que siembra la base son
+  `em2-tablero`, `plug-heladera`, `plug-pc`, `plug-lavarropas` y `plug-libre`.
+- **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
+  (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
+
+**Sobre TelePeriod: 30 s, no 10.** El mínimo que acepta Tasmota es 10 s, pero con 5 equipos son
+43.200 filas por día — unas 900.000 en la ventana de retención de 21 días. Con 30 s son 14.400
+por día y no se pierde nada importante: la resolución de los gráficos es horaria y el consumo se
+calcula por diferencia del contador acumulado, no integrando la potencia, así que muestrear más
+seguido no mejora la precisión de los kWh. Bajalo a 10 sólo si querés ver el pico de arranque de
+un motor.
+
+### 3. Sólo en el EM2: partir la energía por canal
+
+```
+Backlog EnergyCols 2; SetOption129 1
+```
+
+**`SetOption129 1`** es el que importa: hace que Tasmota publique la energía **por canal**, como
+arrays (`"Power":[612,0]`), en vez de un único número con los canales sumados. Sin esto no hay
+forma de distinguir los dos canales de corriente. `EnergyCols 2` sólo acomoda la tabla de la
+página web del equipo, no cambia el MQTT.
+
+El parser acepta las dos formas por campo, así que un payload mezclado —que es el esperado del
+EM2, con `Voltage` escalar y `Power` como array— se lee bien.
+
+### 4. Verificar
+
+En el dashboard el equipo aparece solo en cuanto llega su primer mensaje. Si no aparece:
+
+```bash
+# Escuchar todo lo que entra al broker
+mosquitto_sub -h 192.168.0.27 -t '#' -v
+```
+
+El broker embebido escucha en todas las interfaces, así que los equipos de la LAN llegan sin
+configuración extra. Lo que sí hay que abrir es el **puerto 1883 en el firewall de Windows**
 para la red privada.
 
-El listener está suscrito a `tele/+/SENSOR`, así que no hay nada que cambiar en el código.
+### 5. Cortar el mock
+
+```bash
+docker compose stop mock      # o Ctrl+C si corre suelto
+```
+
+---
+
+## El relé
+
+Los cuatro enchufes tienen relé; el EM2 no. Un ON/OFF pasa por tres controles antes de llegar
+al equipo, y **todo intento queda registrado**, se haya ejecutado o no.
+
+| Control | Qué frena | Respuesta |
+|---|---|---|
+| El modelo no tiene relé | Cualquier comando al EM2 | `409 BlockedNoRelay` |
+| `RelayLocked` | Nada puede apagarlo: ni el dashboard ni una automatización | `409 BlockedLocked` |
+| `MinRelayIntervalSeconds` | Dos conmutaciones demasiado seguidas | `409 BlockedTooSoon` |
+
+**La heladera viene con el relé bloqueado y un mínimo de 10 minutos.** Un corte por error
+arruina la comida, y el ciclado corto castiga al compresor. Se desbloquea desde Configuración,
+a mano y a sabiendas.
+
+Un rechazo es `409`, no `400` ni `500`: el pedido está bien formado, pero el estado del
+dispositivo no admite conmutarlo ahora. El motivo viaja en texto y se muestra tal cual.
+
+El estado que se ve en pantalla es el que **confirmó el equipo** por `stat/<topic>/POWER`, no
+el que se le pidió. Así, si alguien aprieta el botón físico del enchufe o si un comando se
+pierde, la pantalla muestra la realidad.
+
+---
+
+## MQTT
+
+| Topic | Dirección | Qué lleva |
+|---|---|---|
+| `tele/<topic>/SENSOR` | del equipo | Telemetría de energía. `ENERGY.Total` es la fuente de verdad del consumo; `ENERGY.Power` es potencia **real** (activa), no aparente |
+| `stat/<topic>/POWER` | del equipo | Estado del relé confirmado: `ON` / `OFF` |
+| `cmnd/<topic>/POWER` | al equipo | Comando de encendido |
+
+`stat/<topic>/RESULT` trae el mismo cambio en JSON y se ignora a propósito, para no aplicar el
+mismo estado dos veces.
+
+El campo `Time` que manda Tasmota **se ignora**: un equipo que se reinicia pierde la hora. El
+timestamp lo pone el servidor.
+
+### Broker
+
+La API trae un **broker MQTT embebido** y es el camino por defecto: no hace falta instalar
+Mosquitto y hay una pieza menos que se puede caer.
+
+Si preferís un Mosquitto aparte:
+
+```bash
+docker compose --profile mosquitto up -d
+```
+
+y en ese caso hay que poner `Mqtt:Embedded` en `false` **y** sacarle a la API el mapeo del
+puerto `1883` en `docker-compose.yml`, porque los dos servicios lo publican y chocan.
 
 ---
 
 ## Base de datos
 
 ```
-devices          (id, name, mqtt_topic UNIQUE, location, nominal_watts, type, is_active, created_at)
+devices          (id, name, mqtt_topic UNIQUE, location, nominal_watts, type, role, channel_index,
+                  relay_locked, min_relay_interval_seconds, relay_on, relay_state_at,
+                  is_active, created_at)
+relay_commands   (id, device_id FK, requested_on, source, outcome, reason, created_at)
 energy_readings  (id, device_id FK, timestamp, watts, voltage, amperage,
                   total_kwh, today_kwh, power_factor, created_at)
 energy_hourly    (device_id FK, hour_utc, first_total_kwh, last_total_kwh, avg_watts,
@@ -297,7 +463,7 @@ La API corre `Database.Migrate()` al arrancar, así que no hace falta aplicarlas
 ## Tests
 
 ```bash
-dotnet test EcoWattCasa.Tests                    # 141 tests de tarifa y alertas
+dotnet test EcoWattCasa.Tests                    # 246 tests, sin base ni broker
 cd ecowatt-frontend && npx ng test --watch=false  # smoke del dashboard (vitest + jsdom)
 ```
 

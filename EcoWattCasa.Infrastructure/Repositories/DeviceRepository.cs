@@ -1,4 +1,5 @@
 using EcoWattCasa.Domain.Entities;
+using EcoWattCasa.Domain.Enums;
 using EcoWattCasa.Domain.Interfaces;
 using EcoWattCasa.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,13 @@ public sealed class DeviceRepository(EcoWattDbContext db) : IDeviceRepository
 
     public async Task<Device?> GetByMqttTopicAsync(string mqttTopic, CancellationToken ct = default)
         => await db.Devices.FirstOrDefaultAsync(d => d.MqttTopic == mqttTopic, ct);
+
+    public async Task<Device?> GetHouseMeterAsync(CancellationToken ct = default)
+        => await db.Devices
+            .AsNoTracking()
+            .Where(d => d.Role == DeviceRole.HouseMeter && d.IsActive)
+            .OrderBy(d => d.CreatedAt)
+            .FirstOrDefaultAsync(ct);
 
     public async Task<Device> AddAsync(Device device, CancellationToken ct = default)
     {

@@ -20,8 +20,14 @@ services:
       timeout: 5s
       retries: 10
 
-  # Opcional: la API trae un broker embebido. Este servicio solo hace falta si se prefiere
-  # un Mosquitto aparte, y en ese caso hay que poner "Mqtt:Embedded": false en la API.
+  # Opcional: la API trae un broker embebido y es el camino por defecto. Este servicio solo
+  # hace falta si se prefiere un Mosquitto aparte.
+  #
+  # Para usarlo hay que hacer DOS cambios en el servicio "api" de abajo, no uno:
+  #   1. Mqtt__Embedded: "false" y Mqtt__Host: "mosquitto"
+  #   2. sacarle el mapeo del puerto 1883
+  # Sin el segundo, los dos contenedores intentan publicar el 1883 del host y el stack no
+  # levanta.
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: ecowatt-mosquitto
@@ -49,12 +55,15 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=ecowatt;Username=ecowatt;Password=ecowatt"
+      # Broker embebido en la propia API: una pieza menos que se puede caer. Ver el comentario
+      # del servicio mosquitto para cambiar a uno externo.
       Mqtt__Embedded: "true"
       Cors__AllowedOrigins__0: "http://localhost:4200"
       Cors__AllowedOrigins__1: "http://localhost:8081"
     ports:
       - "5080:8080"
-      # El broker embebido vive en el mismo contenedor: los Sonoff de la LAN entran por aca.
+      # El broker embebido vive en el mismo contenedor: los equipos de la LAN entran por aca.
+      # Si se usa el perfil mosquitto, esta linea se comenta.
       - "1883:1883"
 
   frontend:

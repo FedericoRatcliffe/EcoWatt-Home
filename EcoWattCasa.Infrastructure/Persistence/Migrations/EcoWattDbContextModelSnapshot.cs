@@ -29,6 +29,12 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int>("ChannelIndex")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("channel_index");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -44,6 +50,12 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("location");
+
+                    b.Property<int>("MinRelayIntervalSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("min_relay_interval_seconds");
 
                     b.Property<string>("MqttTopic")
                         .IsRequired()
@@ -61,6 +73,26 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("nominal_watts");
 
+                    b.Property<bool>("RelayLocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("relay_locked");
+
+                    b.Property<bool?>("RelayOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("relay_on");
+
+                    b.Property<DateTimeOffset?>("RelayStateAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("relay_state_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("role");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -73,6 +105,9 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
                     b.HasIndex("MqttTopic")
                         .IsUnique()
                         .HasDatabaseName("ix_devices_mqtt_topic");
+
+                    b.HasIndex("Role")
+                        .HasDatabaseName("ix_devices_role");
 
                     b.ToTable("devices", (string)null);
                 });
@@ -254,6 +289,53 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
                     b.ToTable("imported_bills", (string)null);
                 });
 
+            modelBuilder.Entity("EcoWattCasa.Domain.Entities.RelayCommand", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reason");
+
+                    b.Property<bool>("RequestedOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requested_on");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("source");
+
+                    b.HasKey("Id")
+                        .HasName("pk_relay_commands");
+
+                    b.HasIndex("DeviceId", "CreatedAt")
+                        .HasDatabaseName("ix_relay_commands_device_created");
+
+                    b.ToTable("relay_commands", (string)null);
+                });
+
             modelBuilder.Entity("EcoWattCasa.Domain.Entities.TariffBlock", b =>
                 {
                     b.Property<Guid>("Id")
@@ -408,6 +490,18 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_energy_readings_devices_device_id");
+
+                    b.Navigation("Device");
+                });
+
+            modelBuilder.Entity("EcoWattCasa.Domain.Entities.RelayCommand", b =>
+                {
+                    b.HasOne("EcoWattCasa.Domain.Entities.Device", "Device")
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relay_commands_devices_device_id");
 
                     b.Navigation("Device");
                 });

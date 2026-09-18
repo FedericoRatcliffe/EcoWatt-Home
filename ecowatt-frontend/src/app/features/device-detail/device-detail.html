@@ -20,10 +20,33 @@
       </div>
 
       <!-- Comandos Tasmota: cmnd/{topic}/POWER -->
-      <div class="power">
-        <button class="btn primary" type="button" (click)="setPower(true)">Encender</button>
-        <button class="btn danger" type="button" (click)="setPower(false)">Apagar</button>
-      </div>
+      @if (d.hasRelay) {
+        <div class="power">
+          <!-- El estado lo confirma el equipo: mientras no llegue su stat/POWER no se afirma
+               nada, porque suponerlo prendido seria inventar. -->
+          <span class="relay-state" [class.on]="relayOn() === true" [class.off]="relayOn() === false">
+            @if (relayOn() === null) {
+              Estado del rele: sin confirmar
+            } @else {
+              Rele {{ relayOn() ? 'encendido' : 'apagado' }}
+            }
+          </span>
+
+          @if (d.relayLocked) {
+            <!-- El backend lo rechaza igual; deshabilitar el boton evita el viaje inutil y,
+                 sobre todo, evita hacer creer que se puede. -->
+            <span class="locked" role="status">
+              Rele bloqueado: no se puede apagar desde aca. Se desbloquea en
+              <a routerLink="/config">Configuracion</a>.
+            </span>
+          } @else {
+            <button class="btn primary" type="button" (click)="setPower(true)">Encender</button>
+            <button class="btn danger" type="button" (click)="setPower(false)">Apagar</button>
+          }
+        </div>
+      } @else {
+        <span class="locked" role="status">Medidor de tablero: solo mide, no tiene rele.</span>
+      }
     </header>
 
     @if (notice()) {
@@ -111,5 +134,34 @@
         <app-chart [option]="historyOption()" [height]="320" />
       }
     </div>
+
+    @if (d.hasRelay) {
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Historial del rele</h2>
+            <span class="sub">incluye los intentos que no se ejecutaron</span>
+          </div>
+        </div>
+
+        @if (relayHistory().length === 0) {
+          <div class="empty">Todavia no se intento conmutar este rele.</div>
+        } @else {
+          <ul class="relay-log">
+            @for (c of relayHistory(); track c.createdAt) {
+              <li [class.blocked]="!c.wasSent">
+                <span class="when">{{ dateTime(c.createdAt) }}</span>
+                <span class="what">{{ c.requestedOn ? 'Encender' : 'Apagar' }}</span>
+                <!-- El resultado va en palabras, no solo en color: se lee igual sin verlo. -->
+                <span class="outcome">{{ outcomeLabel(c.outcome) }}</span>
+                @if (c.reason) {
+                  <span class="reason">{{ c.reason }}</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
   }
 </div>

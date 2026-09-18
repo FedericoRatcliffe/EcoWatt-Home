@@ -25,4 +25,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <!-- El ruteo de topics MQTT es internal pero decide si un mensaje se procesa o se tira:
+         merece test propio sin tener que exponerlo. -->
+    <InternalsVisibleTo Include="EcoWattCasa.Tests" />
+  </ItemGroup>
+
 </Project>

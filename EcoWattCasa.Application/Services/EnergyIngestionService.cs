@@ -50,9 +50,21 @@ public sealed class EnergyIngestionService(
             return;
         }
 
-        var energy = payload.Energy;
+        // Se resuelve el canal configurado para este dispositivo. Los enchufes publican
+        // escalares y leen el canal 0; el EM2 publica arrays y, con una sola pinza CT, tambien
+        // mide en el canal 0.
+        var energy = payload.Energy.ForChannel(device.ChannelIndex);
 
-        // El timestamp lo pone el servidor: los Sonoff pierden la hora al reiniciar y un reloj
+        if (energy.IsEmpty)
+        {
+            logger.LogWarning(
+                "{Device} esta configurado en el canal {Channel} pero el payload trajo {Channels} canal(es) sin datos ahi. " +
+                "Revisa ChannelIndex en Configuracion.",
+                device.Name, device.ChannelIndex, payload.Energy.ChannelCount);
+            return;
+        }
+
+        // El timestamp lo pone el servidor: un equipo que se reinicia pierde la hora y un reloj
         // corrido rompe el orden de las series. Tasmota.Time queda solo como referencia de log.
         var reading = new EnergyReading
         {
@@ -85,9 +97,13 @@ public sealed class EnergyIngestionService(
             Name = mqttTopic,
             MqttTopic = mqttTopic,
             Location = "Sin asignar",
-            NominalWatts = (int)Math.Round(payload.Energy?.Power ?? 0d),
-            // Si reporta contador acumulado se comporta como un POW R2; si no, es un ESP32 con SCT-013.
-            Type = payload.Energy?.Total is not null ? DeviceType.SonoffPowR2 : DeviceType.Esp32Sct013,
+            NominalWatts = (int)Math.Round(payload.Energy?.Power.Channel(0) ?? 0d),
+            // Se registra como enchufe a proposito, aunque el payload venga de un medidor de
+            // tablero: un dispositivo mal marcado como HouseMeter corrompe el total de la casa,
+            // mientras que uno marcado como enchufe solo aparece de mas en el desglose. Si hace
+            // falta, se corrige el rol desde Configuracion.
+            Type = DeviceType.AthomPlugV3,
+            Role = DeviceRole.Appliance,
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow
         };

@@ -15,6 +15,8 @@ public sealed class EnergyHub : Hub
     public const string ReadingEvent = "readingReceived";
 
     public const string DeviceRegisteredEvent = "deviceRegistered";
+
+    public const string RelayStateEvent = "relayStateChanged";
 }
 
 /// <summary>Implementacion SignalR del notificador que usa la capa de aplicacion.</summary>
@@ -25,4 +27,7 @@ public sealed class SignalRNotifier(IHubContext<EnergyHub> hub) : IRealtimeNotif
 
     public Task DeviceRegisteredAsync(DeviceDto device, CancellationToken ct = default)
         => hub.Clients.All.SendAsync(EnergyHub.DeviceRegisteredEvent, device, ct);
+
+    public Task RelayStateChangedAsync(RelayStateDto state, CancellationToken ct = default)
+        => hub.Clients.All.SendAsync(EnergyHub.RelayStateEvent, state, ct);
 }

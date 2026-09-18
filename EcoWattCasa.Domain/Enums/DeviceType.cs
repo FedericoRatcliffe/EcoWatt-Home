@@ -1,14 +1,21 @@
 namespace EcoWattCasa.Domain.Enums;
 
-/// <summary>Tipo de hardware que reporta las mediciones.</summary>
+/// <summary>
+/// Modelo de hardware. Define capacidades, no semantica de medicion: para eso esta
+/// <see cref="DeviceRole"/>. Todos hablan Tasmota por MQTT.
+/// </summary>
 public enum DeviceType
 {
-    /// <summary>Enchufe Sonoff POW R2 con firmware Tasmota. Reporta kWh acumulado.</summary>
-    SonoffPowR2 = 0,
+    /// <summary>
+    /// Athom EM2 "2 CH Energy Meter": ESP32-C3 en riel DIN, 1 canal de tension y 2 de
+    /// corriente. Mide potencia real y lleva contador de kWh. No tiene rele.
+    /// Template Tasmota: EnergyCols 2 | SO129 1.
+    /// </summary>
+    AthomEm2 = 0,
 
-    /// <summary>ESP32 + SCT-013 en el tablero. Solo potencia instantanea, sin acumulado.</summary>
-    Esp32Sct013 = 1,
-
-    /// <summary>Dispositivo simulado por el publisher mock (desarrollo sin hardware).</summary>
-    Simulated = 2
+    /// <summary>
+    /// Athom "Tasmota ESP32-C3 AU Plug V3" (PG05V3-AU16A-TAS): enchufe con medicion y rele,
+    /// ficha AU compatible con IRAM 2073. Un solo canal de energia.
+    /// </summary>
+    AthomPlugV3 = 1
 }

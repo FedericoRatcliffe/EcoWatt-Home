@@ -5,6 +5,11 @@ namespace EcoWattCasa.Application.DTOs;
 /// Parte del costo de energia que le toca segun su proporcion de kWh. Los cargos fijos de la
 /// factura no se reparten entre dispositivos: no son de ninguno.
 /// </param>
+/// <param name="IsUnidentified">
+/// No es un dispositivo: es el consumo de la casa que no pasa por ningun enchufe medido.
+/// Viaja como una fila mas para que el desglose sume el total, pero no tiene ficha propia y
+/// su <see cref="DeviceId"/> es <see cref="Guid.Empty"/>.
+/// </param>
 public sealed record DeviceConsumptionDto(
     Guid DeviceId,
     string Name,
@@ -12,7 +17,37 @@ public sealed record DeviceConsumptionDto(
     double Kwh,
     decimal Cost,
     double? CurrentWatts,
-    double SharePercent);
+    double SharePercent,
+    bool IsUnidentified = false);
+
+/// <summary>
+/// Que parte del consumo de la casa se mide enchufe por enchufe y que parte no.
+/// </summary>
+/// <param name="HasMeter">
+/// Hay medidor de tablero. Sin el, el total es solo la suma de los enchufes: mide de menos y
+/// conviene decirlo en la pantalla.
+/// </param>
+/// <param name="MeasuredExceedsHouse">
+/// Los enchufes midieron mas que el tablero, que no puede pasar. Senal de configuracion mal
+/// puesta, no de consumo.
+/// </param>
+/// <param name="CurrentWatts">
+/// Potencia de toda la casa ahora. Sale del medidor de tablero; sin medidor, de la suma de los
+/// enchufes.
+/// </param>
+/// <param name="MeterDeviceIds">
+/// Que dispositivos componen el total. El frontend los necesita para actualizar la potencia de
+/// la casa con lo que llega por el hub, porque el medidor no tiene fila en el desglose.
+/// </param>
+public sealed record HouseSplitDto(
+    double HouseKwh,
+    double MeasuredKwh,
+    double UnidentifiedKwh,
+    double MeasuredSharePercent,
+    bool HasMeter,
+    bool MeasuredExceedsHouse,
+    double CurrentWatts,
+    IReadOnlyList<Guid> MeterDeviceIds);
 
 /// <summary>Una linea de tramo de la factura.</summary>
 public sealed record BillBlockDto(string Label, double Kwh, decimal PricePerKwh, decimal Amount);
@@ -56,7 +91,8 @@ public sealed record DailyDashboardDto(
     decimal TotalCost,
     decimal MarginalPricePerKwh,
     IReadOnlyList<DeviceConsumptionDto> Devices,
-    IReadOnlyList<HistoryPointDto> Hourly);
+    IReadOnlyList<HistoryPointDto> Hourly,
+    HouseSplitDto House);
 
 /// <summary>
 /// Dashboard del periodo facturable: la factura completa, el desglose por dispositivo y la
@@ -80,4 +116,5 @@ public sealed record PeriodDashboardDto(
     double? ChangePercentVsPreviousPeriod,
     ProjectionDto? Projection,
     IReadOnlyList<DeviceConsumptionDto> Devices,
-    IReadOnlyList<HistoryPointDto> Daily);
+    IReadOnlyList<HistoryPointDto> Daily,
+    HouseSplitDto House);

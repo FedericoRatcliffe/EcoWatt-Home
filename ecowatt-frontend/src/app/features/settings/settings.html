@@ -305,7 +305,7 @@
               [ngModel]="form().mqttTopic"
               (ngModelChange)="patchForm({ mqttTopic: $event })"
               name="topic"
-              placeholder="sonoff-heladera"
+              placeholder="plug-heladera"
               pattern="[A-Za-z0-9_\-]+"
               required
             />
@@ -339,11 +339,67 @@
             Tipo
             <select [ngModel]="form().type" (ngModelChange)="patchForm({ type: $event })" name="type">
               @for (type of deviceTypes; track type) {
-                <option [value]="type">{{ type }}</option>
+                <option [value]="type">{{ typeLabel(type) }}</option>
               }
             </select>
           </label>
         </div>
+
+        <div class="row">
+          <label class="field grow">
+            Que mide
+            <select [ngModel]="form().role" (ngModelChange)="patchForm({ role: $event })" name="role">
+              @for (role of deviceRoles; track role) {
+                <option [value]="role">{{ roleLabel(role) }}</option>
+              }
+            </select>
+            <span class="hint">
+              El medidor de tablero mide la casa entera e incluye a los enchufes: su lectura es el
+              total, y lo que no pasa por ningun enchufe aparece como consumo no identificado.
+            </span>
+          </label>
+
+          <label class="field">
+            Canal
+            <input
+              type="number"
+              min="0"
+              max="7"
+              [ngModel]="form().channelIndex"
+              (ngModelChange)="patchForm({ channelIndex: +$event })"
+              name="channelIndex"
+            />
+            <span class="hint">Los enchufes usan el 0. El EM2 tiene dos y con una sola pinza mide en el 0.</span>
+          </label>
+        </div>
+
+        @if (form().type === 'AthomPlugV3') {
+          <div class="row">
+            <label class="field">
+              Minimo entre encendidos (s)
+              <input
+                type="number"
+                min="0"
+                max="86400"
+                [ngModel]="form().minRelayIntervalSeconds"
+                (ngModelChange)="patchForm({ minRelayIntervalSeconds: +$event })"
+                name="minRelayIntervalSeconds"
+              />
+              <span class="hint">Protege al compresor del ciclado corto. 0 = sin limite.</span>
+            </label>
+
+            <label class="check grow">
+              <input
+                type="checkbox"
+                [ngModel]="form().relayLocked"
+                (ngModelChange)="patchForm({ relayLocked: $event })"
+                name="relayLocked"
+              />
+              Bloquear el rele: nadie puede apagarlo desde el dashboard ni por automatizacion.
+              Es lo que corresponde para la heladera.
+            </label>
+          </div>
+        }
 
         @if (editingId()) {
           <label class="check">
@@ -380,6 +436,7 @@
                 <th>Topic</th>
                 <th>Ubicacion</th>
                 <th>Tipo</th>
+                <th>Que mide</th>
                 <th class="num">Nominal</th>
                 <th class="num">Ahora</th>
                 <th></th>
@@ -396,7 +453,13 @@
                   </td>
                   <td><code>{{ d.mqttTopic }}</code></td>
                   <td>{{ d.location }}</td>
-                  <td>{{ d.type }}</td>
+                  <td>{{ typeLabel(d.type) }}</td>
+                  <td>
+                    {{ roleLabel(d.role) }}
+                    @if (d.relayLocked) {
+                      <span class="badge">rele bloqueado</span>
+                    }
+                  </td>
                   <td class="num">{{ d.nominalWatts }} W</td>
                   <td class="num">{{ watts(d.currentWatts) }}</td>
                   <td class="actions">

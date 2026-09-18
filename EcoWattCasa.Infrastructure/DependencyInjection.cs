@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IEnergyReadingRepository, EnergyReadingRepository>();
         services.AddScoped<ITariffRepository, TariffRepository>();
         services.AddScoped<IBillRepository, BillRepository>();
+        services.AddScoped<IRelayCommandRepository, RelayCommandRepository>();
         services.AddSingleton<IBillTextExtractor, PdfBillTextExtractor>();
 
         services.Configure<RollupOptions>(configuration.GetSection(RollupOptions.SectionName));
