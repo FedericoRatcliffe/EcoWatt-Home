@@ -23,7 +23,7 @@ Postgres (cubre el ciclo actual y el anterior, que es lo que la comparacion nece
 
 ```bash
 dotnet build                                               # solucion entera (EcoWattCasa.slnx)
-dotnet test EcoWattCasa.Tests                              # 246 tests, ~250 ms, sin base ni red
+dotnet test EcoWattCasa.Tests                              # 254 tests, ~250 ms, sin base ni red
 cd ecowatt-frontend && npx ng test --watch=false            # smoke del dashboard (vitest + jsdom)
 docker compose --profile mock up -d --build                 # todo en Docker, frontend en :8081
 
@@ -114,6 +114,14 @@ componente, `inject()` en vez de constructor, control flow `@if`/`@for` (nunca `
   extiende la ventana de tiempo minimo: solo la mueve un comando que efectivamente salio.
 - **El estado del rele lo manda el equipo por `stat/<topic>/POWER`**, no se infiere del comando.
   Asi se ve el boton fisico del enchufe y los comandos que se perdieron.
+- **Que calle el medidor de tablero y que calle un enchufe son alertas distintas.** Sin medidor
+  no hay total de la casa, y sin total no hay factura estimada ni aviso de cruce de tramo
+  (`meter-silent`, Critical). Un enchufe mudo no cambia el total: su consumo se corre al no
+  identificado (`device-silent`, Warning).
+- **Borrar el historial no borra los dispositivos** (`DeleteHistoryAsync`). Existe para el dia
+  que llega el hardware real: hay que sacarse de encima el consumo simulado pero conservar
+  topic, canal y bloqueo del rele. Borra las dos tablas, cruda y rollup: dejar el rollup vivo
+  haria que el dashboard siguiera mostrando el consumo viejo.
 - **Los timestamps los pone el servidor.** El campo `Time` de Tasmota se ignora a proposito
   (un equipo que se reinicia pierde la hora). No lo "arregles".
 - **Todo se persiste en UTC (`timestamptz`) y se agrega en hora de Buenos Aires** via

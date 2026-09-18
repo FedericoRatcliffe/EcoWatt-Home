@@ -77,6 +77,9 @@ public class UpdateDeviceDto : CreateDeviceDto
     public bool IsActive { get; set; } = true;
 }
 
+/// <summary>Lo que se borro al limpiar el historial.</summary>
+public sealed record HistoryPurgeDto(int RawDeleted, int HoursDeleted, string Scope);
+
 /// <summary>Estado del rele confirmado por el propio equipo en stat/{topic}/POWER.</summary>
 public sealed record RelayStateDto(Guid DeviceId, bool On, DateTimeOffset AtUtc);
 

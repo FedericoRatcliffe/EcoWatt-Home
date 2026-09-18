@@ -33,6 +33,14 @@ export interface Device {
   relayStateAt: string | null;
 }
 
+/** Lo que se borró al limpiar el historial. */
+export interface HistoryPurge {
+  rawDeleted: number;
+  hoursDeleted: number;
+  /** Sobre qué se borró: el nombre del dispositivo, o "todos los dispositivos". */
+  scope: string;
+}
+
 /** Estado del relé confirmado por el propio equipo en stat/{topic}/POWER. */
 export interface RelayState {
   deviceId: string;

@@ -473,5 +473,29 @@
         </div>
       }
     </div>
+
+    <div class="section-title">
+      <h2>Mantenimiento</h2>
+      <span class="muted">operaciones que no se pueden deshacer</span>
+    </div>
+
+    <div class="card danger-zone">
+      <div>
+        <strong>Borrar el historial de consumo</strong>
+        <p class="hint">
+          Borra todas las lecturas y la historia horaria consolidada, de todos los dispositivos.
+          Los dispositivos, sus topics, canales y bloqueos de rele quedan como estan; tambien la
+          tarifa y las facturas importadas.
+        </p>
+        <p class="hint">
+          Es lo que hay que hacer el dia que se instalan los equipos reales: la base tiene el
+          consumo simulado del mock sobre los mismos dispositivos, y el dashboard no los distingue.
+        </p>
+      </div>
+
+      <button class="btn ghost danger" type="button" [disabled]="purging()" (click)="purgeHistory()">
+        {{ purging() ? 'Borrando...' : 'Borrar historial' }}
+      </button>
+    </div>
   }
 </div>

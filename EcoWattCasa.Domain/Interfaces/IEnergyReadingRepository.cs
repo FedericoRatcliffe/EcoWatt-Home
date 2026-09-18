@@ -23,6 +23,15 @@ public interface IEnergyReadingRepository
         DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default);
 
     /// <summary>
+    /// Borra el historial de consumo, dejando los dispositivos y su configuracion intactos.
+    /// Es lo que hace falta el dia que llega el hardware real: el historial simulado tiene que
+    /// irse, pero el topic, el canal y el bloqueo del rele de cada equipo sirven igual.
+    /// </summary>
+    /// <param name="deviceId">null = todos los dispositivos.</param>
+    /// <returns>Lecturas crudas y horas consolidadas que se borraron.</returns>
+    Task<(int RawDeleted, int HoursDeleted)> DeleteHistoryAsync(Guid? deviceId, CancellationToken ct = default);
+
+    /// <summary>
     /// Consolida en la tabla horaria las horas ya cerradas que todavia no estan, y despues
     /// borra las lecturas crudas anteriores a la retencion.
     /// </summary>

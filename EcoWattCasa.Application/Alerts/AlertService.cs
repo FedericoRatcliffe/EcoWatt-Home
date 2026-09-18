@@ -1,6 +1,7 @@
 using EcoWattCasa.Application.Common;
 using EcoWattCasa.Application.Services;
 using EcoWattCasa.Domain.Entities;
+using EcoWattCasa.Domain.Enums;
 using EcoWattCasa.Domain.Interfaces;
 using Microsoft.Extensions.Options;
 
@@ -58,7 +59,8 @@ public sealed class AlertService(
                 d.Id,
                 d.Name,
                 d.IsActive,
-                lastSeen.TryGetValue(d.Id, out var seen) ? seen : null))
+                lastSeen.TryGetValue(d.Id, out var seen) ? seen : null,
+                d.Role == DeviceRole.HouseMeter))
             .ToList();
 
         return new AlertContext(

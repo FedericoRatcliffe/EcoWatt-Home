@@ -9,8 +9,15 @@ namespace EcoWattCasa.Application.Common;
 /// </summary>
 public static class EnergyMath
 {
-    /// <summary>Periodo de telemetria asumido cuando el bucket tiene una sola muestra.</summary>
-    public static readonly TimeSpan AssumedTelemetryPeriod = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// Cuanto vale una muestra suelta. Solo entra en juego cuando el bucket tiene UNA muestra:
+    /// con dos o mas, el lapso sale de los timestamps y no hay nada que asumir.
+    ///
+    /// Son los 30 s del TelePeriod recomendado en el README. Si se configura otro, lo unico
+    /// que cambia es cuanta energia se le atribuye a una hora en la que el equipo reporto una
+    /// sola vez, o sea a una hora en la que estuvo practicamente caido: centesimas de kWh.
+    /// </summary>
+    public static readonly TimeSpan AssumedTelemetryPeriod = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Techo fisico de un solo circuito monofasico de la casa. Sirve para detectar que el

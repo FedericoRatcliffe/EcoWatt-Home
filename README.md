@@ -113,6 +113,8 @@ Dos cosas que **no** se copiaron, a propósito:
 | GET | `/api/devices/{id}/history?hours=24` | Historial agregado con costo (≤48 h por hora, más por día) |
 | POST | `/api/devices/{id}/power` | `{ "on": true }` → publica `cmnd/{topic}/POWER`. `409` si la guarda del relé lo rechaza, `503` si el broker no está |
 | GET | `/api/devices/{id}/relay-history` | Intentos de conmutación, incluidos los rechazados |
+| DELETE | `/api/devices/{id}/history?confirm=borrar` | Borra el historial de consumo de un dispositivo, dejando su configuración |
+| DELETE | `/api/devices/history?confirm=borrar` | Lo mismo para toda la casa |
 | GET | `/api/dashboard/daily?date=` | Consumo y costo del día por dispositivo + curva horaria |
 | GET | `/api/dashboard/period?cycle=&offset=` | La factura del período reconstruida, con desglose por dispositivo |
 | GET | `/api/dashboard/cycle` | Dónde está anclado el ciclo y de qué dato salió |
@@ -365,11 +367,18 @@ El broker embebido escucha en todas las interfaces, así que los equipos de la L
 configuración extra. Lo que sí hay que abrir es el **puerto 1883 en el firewall de Windows**
 para la red privada.
 
-### 5. Cortar el mock
+### 5. Cortar el mock y borrar lo simulado
 
 ```bash
 docker compose stop mock      # o Ctrl+C si corre suelto
 ```
+
+La base va a tener meses de consumo **simulado** sobre los mismos dispositivos, y el dashboard
+no tiene cómo distinguirlo del real: el ciclo en curso mezclaría las dos cosas. En
+**Configuración → Mantenimiento** hay un botón que borra todas las lecturas y la historia
+horaria consolidada, dejando intactos los dispositivos (topic, canal, bloqueo de relé), la
+tarifa y las facturas importadas. Borrar el dispositivo entero no sirve: se llevaría justo la
+configuración que hay que conservar.
 
 ---
 

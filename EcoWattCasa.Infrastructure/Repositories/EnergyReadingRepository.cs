@@ -25,6 +25,22 @@ public sealed class EnergyReadingRepository(EcoWattDbContext db) : IEnergyReadin
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task<(int RawDeleted, int HoursDeleted)> DeleteHistoryAsync(
+        Guid? deviceId, CancellationToken ct = default)
+    {
+        // Se borran las dos tablas: dejar el rollup vivo haria que el dashboard siguiera
+        // mostrando el consumo viejo, porque la lectura horaria lo prefiere sobre lo crudo.
+        var raw = deviceId is { } id
+            ? await db.EnergyReadings.Where(r => r.DeviceId == id).ExecuteDeleteAsync(ct)
+            : await db.EnergyReadings.ExecuteDeleteAsync(ct);
+
+        var hours = deviceId is { } hourlyId
+            ? await db.EnergyHourly.Where(h => h.DeviceId == hourlyId).ExecuteDeleteAsync(ct)
+            : await db.EnergyHourly.ExecuteDeleteAsync(ct);
+
+        return (raw, hours);
+    }
+
     public async Task<IReadOnlyList<EnergyReading>> GetByDeviceAsync(
         Guid deviceId, DateTimeOffset fromUtc, DateTimeOffset toUtc, int maxPoints = 2000, CancellationToken ct = default)
     {

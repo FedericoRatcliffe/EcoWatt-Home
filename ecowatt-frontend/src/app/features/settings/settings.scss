@@ -145,3 +145,23 @@ td.actions {
   text-align: right;
   white-space: nowrap;
 }
+
+// Zona de operaciones irreversibles: separada del resto y con el motivo escrito al lado del
+// boton, no en un tooltip. El color no alcanza para avisar de algo que no se puede deshacer.
+.danger-zone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  border-left: 3px solid $red-500;
+
+  .hint {
+    margin: 0.35rem 0 0;
+    max-width: 44rem;
+  }
+
+  .btn {
+    flex-shrink: 0;
+  }
+}

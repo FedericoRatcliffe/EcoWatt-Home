@@ -95,6 +95,32 @@ public sealed class DevicesController(DeviceService devices, DashboardService da
         }
     }
 
+    /// <summary>
+    /// Borra el historial de consumo de un dispositivo, dejando su configuracion intacta.
+    /// Para el dia que llega el hardware real y hay que sacarse de encima el consumo simulado.
+    /// </summary>
+    [HttpDelete("{id:guid}/history")]
+    public async Task<IActionResult> DeleteHistory(Guid id, [FromQuery] string? confirm, CancellationToken ct)
+        => await PurgeAsync(id, confirm, ct);
+
+    /// <summary>Borra el historial de consumo de toda la casa.</summary>
+    [HttpDelete("history")]
+    public async Task<IActionResult> DeleteAllHistory([FromQuery] string? confirm, CancellationToken ct)
+        => await PurgeAsync(null, confirm, ct);
+
+    /// <summary>
+    /// Es irreversible y la app no tiene login, asi que se pide la palabra explicita: evita
+    /// que un curl de mas o un link guardado borre meses de mediciones.
+    /// </summary>
+    private async Task<IActionResult> PurgeAsync(Guid? id, string? confirm, CancellationToken ct)
+    {
+        if (!string.Equals(confirm, "borrar", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { error = "Borra el historial de forma irreversible. Repeti el pedido con ?confirm=borrar." });
+
+        var result = await devices.DeleteHistoryAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     /// <summary>Historial de conmutaciones del rele, incluidas las rechazadas.</summary>
     [HttpGet("{id:guid}/relay-history")]
     public async Task<ActionResult<IReadOnlyList<RelayCommandDto>>> GetRelayHistory(

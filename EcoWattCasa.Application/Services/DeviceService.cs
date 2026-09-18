@@ -174,6 +174,32 @@ public sealed class DeviceService(
             },
             ct);
 
+    /// <summary>
+    /// Borra el historial de consumo sin tocar los dispositivos.
+    ///
+    /// Existe para el dia que llega el hardware real: la base va a tener meses de consumo
+    /// simulado sobre los mismos dispositivos, y el dashboard no tiene como distinguirlo del
+    /// real. Borrar el dispositivo entero no sirve, porque se llevaria el topic, el canal y el
+    /// bloqueo del rele, que son justo lo que hay que conservar.
+    /// </summary>
+    /// <param name="deviceId">null = el historial de toda la casa.</param>
+    public async Task<HistoryPurgeDto?> DeleteHistoryAsync(Guid? deviceId, CancellationToken ct = default)
+    {
+        var scope = "todos los dispositivos";
+
+        if (deviceId is { } id)
+        {
+            var device = await devices.GetByIdAsync(id, ct);
+            if (device is null)
+                return null;
+
+            scope = device.Name;
+        }
+
+        var (raw, hours) = await readings.DeleteHistoryAsync(deviceId, ct);
+        return new HistoryPurgeDto(raw, hours, scope);
+    }
+
     /// <summary>Historial de conmutaciones, incluidas las rechazadas.</summary>
     public async Task<IReadOnlyList<RelayCommandDto>> GetRelayHistoryAsync(
         Guid? deviceId, int limit = 50, CancellationToken ct = default)

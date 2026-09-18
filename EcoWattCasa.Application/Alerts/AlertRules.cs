@@ -25,7 +25,16 @@ public sealed record Alert(
     Guid? DeviceId = null);
 
 /// <summary>Estado de un dispositivo al momento de evaluar.</summary>
-public sealed record DeviceStatus(Guid Id, string Name, bool IsActive, DateTimeOffset? LastSeenUtc);
+/// <param name="IsHouseMeter">
+/// Mide toda la casa desde el tablero. Cambia el peso de que se calle: sin el medidor no hay
+/// total de la casa, y sin total no hay factura estimada ni alerta de cruce de tramo.
+/// </param>
+public sealed record DeviceStatus(
+    Guid Id,
+    string Name,
+    bool IsActive,
+    DateTimeOffset? LastSeenUtc,
+    bool IsHouseMeter = false);
 
 public sealed class AlertThresholds
 {
@@ -104,17 +113,41 @@ public static class AlertRules
             yield break;
         }
 
+        // Que se calle el medidor de tablero y que se calle un enchufe son dos problemas
+        // distintos, y antes de instalar el EM2 no lo eran. El medidor es el total de la casa:
+        // sin el no hay factura estimada ni alerta de cruce de tramo. Un enchufe mudo, en
+        // cambio, no cambia el total: su consumo se corre al no identificado.
+        var hasMeter = active.Any(d => d.IsHouseMeter);
+
         foreach (var device in silent)
         {
             var since = device.LastSeenUtc is { } seen
                 ? $"hace {Humanize(nowUtc - seen)}"
                 : "desde que se registro";
 
+            if (device.IsHouseMeter)
+            {
+                yield return new Alert(
+                    "meter-silent",
+                    AlertSeverity.Critical,
+                    $"{device.Name} no reporta",
+                    $"No manda lecturas {since}. Es el medidor de toda la casa: mientras este mudo, " +
+                    "el consumo total, la factura estimada y el aviso de cruce de tramo quedan sin base.",
+                    device.Id);
+
+                continue;
+            }
+
+            var impact = hasMeter
+                ? "El total de la casa lo sigue midiendo el tablero, asi que lo que consuma este " +
+                  "aparato aparece como consumo no identificado."
+                : "Mientras tanto, el consumo de la casa queda subestimado.";
+
             yield return new Alert(
                 "device-silent",
                 AlertSeverity.Warning,
                 $"{device.Name} no reporta",
-                $"No manda lecturas {since}. Mientras tanto, el consumo de la casa queda subestimado.",
+                $"No manda lecturas {since}. {impact}",
                 device.Id);
         }
     }

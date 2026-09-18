@@ -68,6 +68,7 @@ export class Settings {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
+  protected readonly purging = signal(false);
 
   // ---------- Import de PDF ----------
   protected readonly importing = signal(false);
@@ -314,6 +315,39 @@ export class Settings {
         this.loadAll();
       },
       error: (err) => this.error.set(this.describe(err)),
+    });
+  }
+
+  /**
+   * Borra el historial de consumo dejando los dispositivos como están.
+   *
+   * Es para el día que llega el hardware real: la base tiene meses de consumo simulado sobre
+   * los mismos dispositivos y el dashboard no los distingue. Borrar el dispositivo entero no
+   * sirve, porque se llevaría el topic, el canal y el bloqueo del relé.
+   */
+  protected purgeHistory(): void {
+    const confirmed = confirm(
+      'Borra TODAS las lecturas de consumo de todos los dispositivos, incluida la historia ' +
+        'consolidada. Los dispositivos y su configuracion quedan como estan.\n\n' +
+        'No se puede deshacer. Continuar?',
+    );
+
+    if (!confirmed) return;
+
+    this.purging.set(true);
+    this.error.set(null);
+
+    this.api.deleteHistory().subscribe({
+      next: (result) => {
+        this.purging.set(false);
+        this.notice.set(
+          `Historial borrado: ${result.rawDeleted} lecturas y ${result.hoursDeleted} horas consolidadas.`,
+        );
+      },
+      error: (err) => {
+        this.purging.set(false);
+        this.error.set(this.describe(err));
+      },
     });
   }
 

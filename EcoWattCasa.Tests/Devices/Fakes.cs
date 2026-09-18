@@ -103,6 +103,16 @@ internal sealed class EmptyReadingRepository : IEnergyReadingRepository
         DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<BucketEnergySamples>>([]);
 
+    /// <summary>Lo que se borro, contado, para poder afirmar sobre el alcance del pedido.</summary>
+    public List<Guid?> Purged { get; } = [];
+
+    public Task<(int RawDeleted, int HoursDeleted)> DeleteHistoryAsync(
+        Guid? deviceId, CancellationToken ct = default)
+    {
+        Purged.Add(deviceId);
+        return Task.FromResult((0, 0));
+    }
+
     public Task<(int HoursRolledUp, int RawDeleted)> RollUpAndPruneAsync(
         DateTimeOffset completeBefore, DateTimeOffset deleteRawBefore, CancellationToken ct = default)
         => Task.FromResult((0, 0));

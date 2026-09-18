@@ -30,6 +30,10 @@ public class AlertRulesTests
     private static DeviceStatus Reporting(string name, int minutesAgo = 0) =>
         new(Guid.NewGuid(), name, IsActive: true, Now.AddMinutes(-minutesAgo));
 
+    /// <summary>El medidor de tablero: su lectura es el total de la casa.</summary>
+    private static DeviceStatus Meter(int minutesAgo = 0) =>
+        new(Guid.NewGuid(), "Medidor de tablero", IsActive: true, Now.AddMinutes(-minutesAgo), IsHouseMeter: true);
+
     private static AlertContext Context(
         double cycleKwh = 50,
         double projectedKwh = 100,
@@ -152,13 +156,51 @@ public class AlertRulesTests
     }
 
     [Fact]
-    public void El_aviso_explica_que_el_consumo_queda_subestimado()
+    public void Sin_medidor_de_tablero_un_enchufe_mudo_si_subestima_el_consumo()
     {
+        // Midiendo solo enchufes, el que se calla se lleva su consumo: el total baja.
         var silent = new DeviceStatus(Guid.NewGuid(), "Heladera", IsActive: true, Now.AddHours(-3));
 
         var alert = Find(Evaluate(Context(devices: [Reporting("PC"), silent])), "device-silent");
 
         Assert.Contains("subestimado", alert!.Detail);
+    }
+
+    [Fact]
+    public void Con_medidor_de_tablero_un_enchufe_mudo_no_cambia_el_total()
+    {
+        // El tablero mide la acometida igual: lo que consuma la heladera sigue contado, solo
+        // que ya no se sabe que es de ella. Decir "queda subestimado" seria mentir.
+        var silent = new DeviceStatus(Guid.NewGuid(), "Heladera", IsActive: true, Now.AddHours(-3));
+
+        var alert = Find(Evaluate(Context(devices: [Meter(), Reporting("PC"), silent])), "device-silent");
+
+        Assert.NotNull(alert);
+        Assert.DoesNotContain("subestimado", alert.Detail);
+        Assert.Contains("no identificado", alert.Detail);
+    }
+
+    [Fact]
+    public void Que_se_calle_el_medidor_de_tablero_es_critico()
+    {
+        // Sin medidor no hay total de la casa, y sin total no hay factura estimada ni aviso de
+        // cruce de tramo: es de otra gravedad que un enchufe mudo.
+        var meter = Meter(minutesAgo: 180);
+
+        var alert = Find(Evaluate(Context(devices: [meter, Reporting("PC")])), "meter-silent");
+
+        Assert.NotNull(alert);
+        Assert.Equal(AlertSeverity.Critical, alert.Severity);
+        Assert.Equal(meter.Id, alert.DeviceId);
+        Assert.Contains("toda la casa", alert.Detail);
+    }
+
+    [Fact]
+    public void El_medidor_mudo_no_se_avisa_ademas_como_un_enchufe_mas()
+    {
+        var alerts = Evaluate(Context(devices: [Meter(minutesAgo: 180), Reporting("PC")]));
+
+        Assert.Null(Find(alerts, "device-silent"));
     }
 
     [Fact]

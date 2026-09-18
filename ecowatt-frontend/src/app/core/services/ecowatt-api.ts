@@ -10,6 +10,7 @@ import {
   DeviceHistory,
   DeviceInput,
   EnergyReading,
+  HistoryPurge,
   ImportedBill,
   PeriodDashboard,
   RelayCommand,
@@ -64,6 +65,17 @@ export class EcowattApi {
 
   setPower(id: string, on: boolean): Observable<unknown> {
     return this.http.post(`/api/devices/${id}/power`, { on });
+  }
+
+  /**
+   * Borra el historial de consumo sin tocar los dispositivos ni su configuración.
+   * `confirm` es obligatorio del lado del backend: la operación es irreversible.
+   */
+  deleteHistory(deviceId?: string): Observable<HistoryPurge> {
+    const path = deviceId ? `/api/devices/${deviceId}/history` : '/api/devices/history';
+    return this.http.delete<HistoryPurge>(path, {
+      params: new HttpParams().set('confirm', 'borrar'),
+    });
   }
 
   /** Intentos de conmutar el relé, incluidos los que la guarda rechazó. */
