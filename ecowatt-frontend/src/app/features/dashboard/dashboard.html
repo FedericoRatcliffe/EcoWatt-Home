@@ -142,6 +142,40 @@
         </div>
       </section>
 
+      <!-- Objetivo de factura: cuantos kWh deja el monto elegido y como viene el ciclo. -->
+      @if (period()?.goal; as g) {
+        @if (goalView(); as v) {
+          <section class="card goal-card" [class]="v.kind">
+            <div class="goal-head">
+              <div>
+                <div class="stat-label">Objetivo de factura</div>
+                <div class="goal-amount">
+                  {{ money(g.amount) }}
+                  <span class="muted">hasta {{ kwh(g.kwhBudget) }} en el ciclo</span>
+                </div>
+              </div>
+              <span class="goal-badge">{{ v.label }}</span>
+            </div>
+
+            <!-- La barra refuerza el numero de abajo, no lo reemplaza. -->
+            <div class="goal-bar" role="presentation">
+              <span [style.width.%]="v.usedPercent"></span>
+            </div>
+            <div class="stat-sub">
+              Llevas {{ kwh(g.consumedKwh) }} de {{ kwh(g.kwhBudget) }} ({{ percent(v.usedPercent, 0) }})
+              &middot; <a routerLink="/config">cambiar objetivo</a>
+            </div>
+
+            <p class="goal-advice">{{ v.advice }}</p>
+          </section>
+        }
+      } @else if (useCycle() && offset() === 0 && bill()) {
+        <p class="muted footnote goal-cta">
+          Queres bajar la factura? <a routerLink="/config">Fija un objetivo</a> en pesos y el
+          dashboard te dice cuantos kWh por dia podes consumir para llegar.
+        </p>
+      }
+
       <!-- Desglose de la factura, igual que el papel -->
       @if (bill(); as b) {
         <div class="section-title">

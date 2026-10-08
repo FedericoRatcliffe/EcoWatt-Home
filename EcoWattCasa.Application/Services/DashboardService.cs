@@ -22,6 +22,7 @@ public sealed class DashboardService(
     IEnergyReadingRepository readings,
     ITariffRepository tariffs,
     IBillRepository bills,
+    IBillGoalRepository goals,
     HomeTimeZone tz,
     BillingCycles cycles)
 {
@@ -131,6 +132,9 @@ public sealed class DashboardService(
             ? await BuildBillAsync(Truncate(previous, elapsed), allDevices, history, ct)
             : previousBill;
 
+        var projection = BuildProjection(window, totalKwh, elapsed, history);
+        var goal = await BuildGoalAsync(window, elapsed, totalKwh, projection?.ProjectedCost ?? bill.Total, history, ct);
+
         double? change = comparisonBill.Total > 0m
             ? Math.Round((double)((bill.Total - comparisonBill.Total) / comparisonBill.Total) * 100d, 2)
             : null;
@@ -145,10 +149,11 @@ public sealed class DashboardService(
             comparisonBill.Total,
             isPartial,
             change,
-            BuildProjection(window, totalKwh, elapsed, history),
+            projection,
             consumptions,
             pricedDays,
-            house);
+            house,
+            goal);
     }
 
     public async Task<DeviceHistoryDto?> GetDeviceHistoryAsync(
@@ -242,6 +247,27 @@ public sealed class DashboardService(
             Math.Round(projectedKwh, 2),
             projectedBill.Total,
             projectedBill.AveragePricePerKwh);
+    }
+
+    /// <summary>
+    /// El periodo contra el objetivo de factura. Solo para el ciclo real: el objetivo es de la
+    /// factura, y un mes calendario no es lo que llega en el papel.
+    /// </summary>
+    private async Task<GoalProgressDto?> BuildGoalAsync(
+        PeriodWindow window,
+        int elapsed,
+        double totalKwh,
+        decimal projectedCost,
+        IReadOnlyList<TariffSchedule> history,
+        CancellationToken ct)
+    {
+        if (!window.IsBillingCycle || history.Count == 0)
+            return null;
+
+        var goal = await goals.GetAsync(ct);
+        return goal is null
+            ? null
+            : GoalProgressDto.From(GoalPlanner.Evaluate(goal.Amount, window, elapsed, totalKwh, projectedCost, history));
     }
 
     /// <summary>Recorta una ventana a sus primeros <paramref name="days"/> dias.</summary>

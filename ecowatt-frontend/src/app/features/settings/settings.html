@@ -81,6 +81,55 @@
       }
     </div>
 
+    <!-- ---------- Objetivo de factura ---------- -->
+    <div class="section-title">
+      <h2>Objetivo de factura</h2>
+      <span class="muted">cuanto queres pagar por ciclo, impuestos incluidos</span>
+    </div>
+
+    <div class="card">
+      <form class="form" (ngSubmit)="saveGoal()">
+        <div class="row">
+          <label class="field">
+            Total por ciclo (ARS)
+            <input
+              type="number"
+              min="1"
+              step="1000"
+              [ngModel]="goalInput()"
+              (ngModelChange)="goalInput.set($event === null || $event === '' ? null : +$event)"
+              name="goalAmount"
+              placeholder="60000"
+            />
+          </label>
+
+          <button class="btn primary" type="submit" [disabled]="savingGoal()">
+            {{ savingGoal() ? 'Guardando...' : 'Guardar objetivo' }}
+          </button>
+          @if (goal()?.amount !== null && goal()?.amount !== undefined) {
+            <button class="btn ghost danger" type="button" (click)="clearGoal()">Quitar</button>
+          }
+        </div>
+
+        @if (goal(); as g) {
+          @if (g.amount !== null && g.kwhBudget !== null) {
+            <p class="hint">
+              Con la tarifa actual, {{ money(g.amount) }} alcanzan para
+              <strong>{{ kwh(g.kwhBudget) }}</strong> en el ciclo. El dashboard muestra como viene el
+              ciclo y cuantos kWh por dia quedan para llegar.
+            </p>
+          }
+          @if (g.minimumCost !== null) {
+            <p class="hint">
+              Sin consumir nada la factura del ciclo sale {{ money(g.minimumCost) }}: cargo fijo,
+              alumbrado publico, renovables e impuestos. Un objetivo por debajo de eso no se puede
+              cumplir.
+            </p>
+          }
+        }
+      </form>
+    </div>
+
     <!-- ---------- Cuadro tarifario ---------- -->
     <div class="section-title">
       <h2>Cuadro tarifario</h2>

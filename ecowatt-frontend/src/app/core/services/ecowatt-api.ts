@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   Alert,
+  BillGoal,
   BillImportResult,
   CycleInfo,
   DailyDashboard,
@@ -108,6 +109,19 @@ export class EcowattApi {
   /** Alertas vigentes: cruce de tramo proyectado, dispositivos mudos, proyeccion alta. */
   getAlerts(): Observable<Alert[]> {
     return this.http.get<Alert[]>('/api/alerts');
+  }
+
+  /** Objetivo de factura por ciclo, con los kWh que permite en el ciclo en curso. */
+  getGoal(): Observable<BillGoal> {
+    return this.http.get<BillGoal>('/api/goal');
+  }
+
+  setGoal(amount: number): Observable<BillGoal> {
+    return this.http.put<BillGoal>('/api/goal', { amount });
+  }
+
+  clearGoal(): Observable<void> {
+    return this.http.delete<void>('/api/goal');
   }
 
   getTariff(): Observable<TariffSchedule> {

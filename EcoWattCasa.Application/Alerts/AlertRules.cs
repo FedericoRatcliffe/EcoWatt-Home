@@ -50,6 +50,7 @@ public sealed class AlertThresholds
 }
 
 /// <summary>Todo lo que las reglas necesitan para decidir, ya resuelto.</summary>
+/// <param name="Goal">El ciclo contra el objetivo de factura. null si no hay objetivo fijado.</param>
 public sealed record AlertContext(
     PeriodWindow Cycle,
     int ElapsedDays,
@@ -58,7 +59,8 @@ public sealed record AlertContext(
     decimal ProjectedCost,
     decimal PreviousCycleCost,
     TariffSchedule? Tariff,
-    IReadOnlyList<DeviceStatus> Devices);
+    IReadOnlyList<DeviceStatus> Devices,
+    GoalProgress? Goal = null);
 
 /// <summary>
 /// Las reglas de alerta. Son una funcion pura del estado: reciben el contexto ya armado y no
@@ -77,6 +79,7 @@ public static class AlertRules
         alerts.AddRange(Telemetry(context, thresholds, nowUtc));
         alerts.AddRange(BlockCrossing(context));
         alerts.AddRange(Overrun(context, thresholds));
+        alerts.AddRange(Goal(context));
 
         // Lo mas grave primero; dentro de la misma gravedad, el orden en que se generaron.
         return alerts.OrderByDescending(a => a.Severity).ToList();
@@ -240,6 +243,49 @@ public static class AlertRules
             "Vas arriba del ciclo anterior",
             $"La proyeccion del ciclo es {Money(context.ProjectedCost)}, un {ratio * 100:0.#} % mas que " +
             $"los {Money(context.PreviousCycleCost)} del anterior.");
+    }
+
+    // ---------- Objetivo de factura ----------
+
+    /// <summary>
+    /// El objetivo sirve si avisa con tiempo para corregir, y la correccion se hace en kWh por
+    /// dia, no en pesos. Por eso cada aviso dice cuanto se puede consumir de aca al cierre.
+    /// </summary>
+    private static IEnumerable<Alert> Goal(AlertContext context)
+    {
+        if (context.Goal is not { IsOpen: true } goal)
+            yield break;
+
+        switch (goal.Status)
+        {
+            case GoalStatus.Unreachable:
+                yield return new Alert(
+                    "goal-unreachable",
+                    AlertSeverity.Info,
+                    $"El objetivo de {Money(goal.Amount)} no se puede cumplir",
+                    $"Con la tarifa actual la factura sale {Money(goal.MinimumCost)} sin consumir nada: " +
+                    "son cargos fijos e impuestos que no dependen del consumo. Subi el objetivo desde Configuracion.");
+                break;
+
+            case GoalStatus.Exceeded:
+                yield return new Alert(
+                    "goal-exceeded",
+                    AlertSeverity.Warning,
+                    $"Pasaste el objetivo de {Money(goal.Amount)}",
+                    $"El objetivo alcanzaba para {goal.KwhBudget:0.#} kWh en el ciclo y ya van " +
+                    $"{goal.ConsumedKwh:0.#}. Al ritmo actual la factura cierra en {Money(goal.ProjectedCost)}.");
+                break;
+
+            case GoalStatus.AtRisk:
+                yield return new Alert(
+                    "goal-at-risk",
+                    AlertSeverity.Warning,
+                    $"Vas a pasar el objetivo de {Money(goal.Amount)}",
+                    $"Al ritmo actual ({goal.CurrentKwhPerDay:0.#} kWh por dia) el ciclo cierra en " +
+                    $"{Money(goal.ProjectedCost)}. Para cumplirlo te quedan {goal.RemainingKwh:0.#} kWh: " +
+                    $"{goal.AllowedKwhPerDay ?? 0:0.#} kWh por dia en los {Plural(goal.DaysLeft, "dia")} que faltan.");
+                break;
+        }
     }
 
     // ---------- Formato ----------

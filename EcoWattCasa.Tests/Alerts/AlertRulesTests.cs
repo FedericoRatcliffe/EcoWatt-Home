@@ -41,7 +41,8 @@ public class AlertRulesTests
         decimal previousCost = 45_000m,
         int elapsedDays = 15,
         bool withTariff = true,
-        IReadOnlyList<DeviceStatus>? devices = null)
+        IReadOnlyList<DeviceStatus>? devices = null,
+        GoalProgress? goal = null)
         => new(
             Cycle(),
             elapsedDays,
@@ -50,7 +51,12 @@ public class AlertRulesTests
             projectedCost,
             previousCost,
             withTariff ? Tariff : null,
-            devices ?? [Reporting("PC"), Reporting("Heladera")]);
+            devices ?? [Reporting("PC"), Reporting("Heladera")],
+            goal);
+
+    /// <summary>El objetivo evaluado sobre el mismo ciclo y la misma tarifa que el contexto.</summary>
+    private static GoalProgress Goal(decimal amount, int elapsedDays, double consumedKwh, decimal projectedCost)
+        => GoalPlanner.Evaluate(amount, Cycle(), elapsedDays, consumedKwh, projectedCost, [Tariff]);
 
     private static IReadOnlyList<Alert> Evaluate(AlertContext context)
         => AlertRules.Evaluate(context, Thresholds, Now);
@@ -293,6 +299,59 @@ public class AlertRulesTests
     public void Sin_ciclo_anterior_no_hay_con_que_comparar()
     {
         Assert.Null(Find(Evaluate(Context(projectedCost: 60_000m, previousCost: 0m)), "cycle-overrun"));
+    }
+
+    // ---------- Objetivo de factura ----------
+
+    [Fact]
+    public void Avisa_si_al_ritmo_actual_se_pasa_el_objetivo_y_dice_cuanto_consumir_por_dia()
+    {
+        var goal = Goal(45_000m, elapsedDays: 15, consumedKwh: 60, projectedCost: 52_000m);
+        var alert = Find(Evaluate(Context(goal: goal)), "goal-at-risk");
+
+        Assert.NotNull(alert);
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Contains("$45.000", alert.Title);
+
+        // Lo accionable no son los pesos: son los kWh por dia que quedan hasta el cierre.
+        Assert.Contains("kWh por dia en los 16 dias que faltan", alert.Detail);
+    }
+
+    [Fact]
+    public void No_molesta_si_el_ciclo_va_dentro_del_objetivo()
+    {
+        var goal = Goal(60_000m, elapsedDays: 15, consumedKwh: 40, projectedCost: 45_000m);
+        var alerts = Evaluate(Context(goal: goal));
+
+        Assert.DoesNotContain(alerts, a => a.Code.StartsWith("goal-"));
+    }
+
+    [Fact]
+    public void Avisa_cuando_el_objetivo_ya_se_paso()
+    {
+        var goal = Goal(30_000m, elapsedDays: 25, consumedKwh: 120, projectedCost: 60_000m);
+        var alert = Find(Evaluate(Context(goal: goal)), "goal-exceeded");
+
+        Assert.NotNull(alert);
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Null(Find(Evaluate(Context(goal: goal)), "goal-at-risk"));
+    }
+
+    [Fact]
+    public void Un_objetivo_por_debajo_de_los_cargos_fijos_se_explica_sin_alarmar()
+    {
+        var goal = Goal(5_000m, elapsedDays: 15, consumedKwh: 10, projectedCost: 20_000m);
+        var alert = Find(Evaluate(Context(goal: goal)), "goal-unreachable");
+
+        Assert.NotNull(alert);
+        Assert.Equal(AlertSeverity.Info, alert.Severity);
+        Assert.Contains("sin consumir nada", alert.Detail);
+    }
+
+    [Fact]
+    public void Sin_objetivo_no_hay_alerta_de_objetivo()
+    {
+        Assert.DoesNotContain(Evaluate(Context()), a => a.Code.StartsWith("goal-"));
     }
 
     // ---------- Orden y apagado ----------

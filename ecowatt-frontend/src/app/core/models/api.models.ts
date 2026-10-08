@@ -176,6 +176,44 @@ export interface Projection {
   averagePricePerKwh: number;
 }
 
+// ---------- Objetivo de factura ----------
+
+/**
+ * OnTrack: cierra dentro del objetivo. AtRisk: todavia se puede, pero al ritmo actual se pasa.
+ * Exceeded: ya se consumio mas de lo que el objetivo permitia. Unreachable: los cargos fijos
+ * solos ya lo superan.
+ */
+export type GoalStatus = 'OnTrack' | 'AtRisk' | 'Exceeded' | 'Unreachable';
+
+/** El ciclo contra el objetivo de factura. */
+export interface GoalProgress {
+  amount: number;
+  /** Lo que sale la factura del ciclo sin consumir nada. */
+  minimumCost: number;
+  /** kWh del ciclo que permite el objetivo. */
+  kwhBudget: number;
+  consumedKwh: number;
+  remainingKwh: number;
+  /** Dias que faltan para el cierre, contando hoy. */
+  daysLeft: number;
+  /** kWh por dia de aca al cierre para cumplir. null con el ciclo cerrado. */
+  allowedKwhPerDay: number | null;
+  currentKwhPerDay: number;
+  projectedCost: number;
+  isOpen: boolean;
+  status: GoalStatus;
+}
+
+/** El objetivo de la casa y lo que significa en el ciclo en curso. */
+export interface BillGoal {
+  /** null = sin objetivo fijado. */
+  amount: number | null;
+  updatedAt: string | null;
+  /** Factura del ciclo en curso sin consumir nada. null sin tarifa cargada. */
+  minimumCost: number | null;
+  kwhBudget: number | null;
+}
+
 export interface DailyDashboard {
   date: string;
   totalKwh: number;
@@ -202,6 +240,8 @@ export interface PeriodDashboard {
   devices: DeviceConsumption[];
   daily: HistoryPoint[];
   house: HouseSplit;
+  /** Solo en el ciclo de facturacion y con objetivo fijado. */
+  goal: GoalProgress | null;
 }
 
 export type AlertSeverity = 'Info' | 'Warning' | 'Critical';

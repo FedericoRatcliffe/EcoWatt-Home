@@ -22,6 +22,27 @@ namespace EcoWattCasa.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EcoWattCasa.Domain.Entities.BillGoal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_bill_goals");
+
+                    b.ToTable("bill_goals", (string)null);
+                });
+
             modelBuilder.Entity("EcoWattCasa.Domain.Entities.Device", b =>
                 {
                     b.Property<Guid>("Id")

@@ -19,6 +19,7 @@ public sealed class AlertService(
     IDeviceRepository devices,
     IEnergyReadingRepository readings,
     ITariffRepository tariffs,
+    IBillGoalRepository goals,
     DashboardService dashboard,
     HomeTimeZone tz,
     BillingCycles cycles,
@@ -63,6 +64,11 @@ public sealed class AlertService(
                 d.Role == DeviceRole.HouseMeter))
             .ToList();
 
+        var goal = await goals.GetAsync(ct);
+        var goalProgress = goal is not null && history.Count > 0
+            ? GoalPlanner.Evaluate(goal.Amount, cycle, elapsed, period.Bill.TotalKwh, projectedCost, history)
+            : null;
+
         return new AlertContext(
             cycle,
             elapsed,
@@ -71,7 +77,8 @@ public sealed class AlertService(
             projectedCost,
             period.PreviousPeriodCost,
             ClosingTariff(history, cycle.To),
-            statuses);
+            statuses,
+            goalProgress);
     }
 
     private static TariffSchedule? ClosingTariff(IReadOnlyList<TariffSchedule> history, DateOnly periodEnd)

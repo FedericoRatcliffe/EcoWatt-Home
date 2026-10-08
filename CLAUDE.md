@@ -23,7 +23,7 @@ Postgres (cubre el ciclo actual y el anterior, que es lo que la comparacion nece
 
 ```bash
 dotnet build                                               # solucion entera (EcoWattCasa.slnx)
-dotnet test EcoWattCasa.Tests                              # 254 tests, ~250 ms, sin base ni red
+dotnet test EcoWattCasa.Tests                              # 274 tests, ~250 ms, sin base ni red
 cd ecowatt-frontend && npx ng test --watch=false            # smoke del dashboard (vitest + jsdom)
 docker compose --profile mock up -d --build                 # todo en Docker, frontend en :8081
 
@@ -62,7 +62,8 @@ Donde vive la logica que importa:
 | `Application/Common/BillCalculator.cs` | Reconstruye la factura: tramos, cargo fijo diario, recargos %, cargos fijos, precio marginal y medio |
 | `Application/Common/EnergyMath.cs` | kWh de un bucket: delta del contador, con la integracion de watts como respaldo |
 | `Application/Common/BillingCycles.cs` | El ciclo real anclado en la ultima lectura de factura, y las ventanas UTC |
-| `Application/Alerts/AlertRules.cs` | Las tres reglas de alerta, funcion pura del contexto |
+| `Application/Alerts/AlertRules.cs` | Las reglas de alerta, funcion pura del contexto |
+| `Application/Common/GoalPlanner.cs` | Objetivo de factura en pesos -> kWh del ciclo, buscando sobre `BillCalculator` |
 | `Application/Billing/BillParser.cs` | PDF de la cooperativa -> importes y tramos |
 | `Infrastructure/Repositories/EnergyHourlySql.cs` | El SQL de agregacion y el rollup, a mano |
 | `Application/Common/HouseConsumption.cs` | Total de la casa (sale del medidor, no de la suma) y consumo no identificado |
@@ -137,6 +138,9 @@ componente, `inject()` en vez de constructor, control flow `@if`/`@for` (nunca `
 - **Columnas en snake_case** por `UseSnakeCaseNamingConvention()`; no escribas `HasColumnName`.
 - **Los enums viajan como texto** al frontend (`JsonStringEnumConverter`).
 - **Las alertas se calculan al pedirlas**, no se persisten.
+- **El objetivo de factura se guarda en pesos, nunca en kWh.** Los kWh que permite dependen de
+  la tarifa y se recalculan en cada pedido con `GoalPlanner`; guardarlos los dejaria viejos con
+  el proximo cuadro tarifario.
 - **`DeviceValidationException` -> 400** lo traduce `ValidationExceptionHandler`; los
   controladores no llevan try/catch.
 

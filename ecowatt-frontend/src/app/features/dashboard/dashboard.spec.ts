@@ -79,6 +79,7 @@ const period = {
   comparisonIsPartial: false,
   changePercentVsPreviousPeriod: -5.68,
   projection: null,
+  goal: null,
   devices: [
     {
       deviceId: 'dev-1',
@@ -285,6 +286,58 @@ describe('Dashboard', () => {
     // Es un problema de configuracion, no de consumo: hay que decir donde se arregla.
     expect(text).toContain('no puede pasar');
     expect(text).toContain('Configuracion');
+  });
+
+  it('muestra el ciclo contra el objetivo y cuantos kWh por dia quedan', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+
+    http.expectOne((r) => r.url === '/api/dashboard/cycle').flush({
+      anchor: '2026-07-31',
+      cycleDays: 30,
+      fromBill: true,
+      source: 'fecha de lectura de la ultima factura importada',
+    });
+    http.expectOne((r) => r.url === '/api/dashboard/daily').flush(daily);
+    http.expectOne((r) => r.url === '/api/dashboard/period').flush({
+      ...period,
+      goal: {
+        amount: 60000,
+        minimumCost: 12235.25,
+        kwhBudget: 132.9,
+        consumedKwh: 80,
+        remainingKwh: 52.9,
+        daysLeft: 15,
+        allowedKwhPerDay: 3.53,
+        currentKwhPerDay: 5.33,
+        projectedCost: 78995.13,
+        isOpen: true,
+        status: 'AtRisk',
+      },
+    });
+    http.expectOne((r) => r.url === '/api/alerts').flush([]);
+
+    showTablesInsteadOfCharts(fixture);
+    await fixture.whenStable();
+    const text = visibleText(fixture.nativeElement as HTMLElement);
+
+    expect(text).toContain('Objetivo de factura');
+    expect(text).toContain('$ 60.000');
+    expect(text).toContain('132,90 kWh en el ciclo');
+
+    // El estado va en palabras, y el consejo en kWh por dia: es lo que se puede controlar.
+    expect(text).toContain('En riesgo');
+    expect(text).toContain('hasta 3,53 kWh por dia en los 15 dias que faltan');
+  });
+
+  it('sin objetivo invita a fijar uno', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    flushAll();
+    showTablesInsteadOfCharts(fixture);
+    await fixture.whenStable();
+
+    const text = visibleText(fixture.nativeElement as HTMLElement);
+    expect(text).toContain('Fija un objetivo');
+    expect(text).not.toContain('Objetivo de factura');
   });
 
   it('avisa cuando la API no responde', async () => {

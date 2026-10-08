@@ -122,7 +122,9 @@ Dos cosas que **no** se copiaron, a propósito:
 | PUT | `/api/tariff` | Carga un cuadro nuevo con su vigencia |
 | POST | `/api/tariff/import` | Sube el PDF de la factura y carga tarifas + comprobante |
 | GET | `/api/tariff/bills` | Facturas reales ya importadas |
-| GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta |
+| GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta, objetivo de factura |
+| GET | `/api/goal` | Objetivo de factura por ciclo, los kWh que permite y lo que sale la factura sin consumir nada |
+| PUT · DELETE | `/api/goal` | `{ "amount": 60000 }` fija el objetivo; `DELETE` lo quita |
 | — | `/hubs/energy` | Hub SignalR: eventos `readingReceived`, `deviceRegistered`, `relayStateChanged` |
 
 ---
@@ -225,7 +227,7 @@ donde el rollup tiene las 60 muestras completas y quedan 6 crudas sueltas. La le
 rollup, así que el valor es el correcto.
 
 **Las alertas se calculan al pedirlas, no se guardan.** Son una lectura del estado actual, no
-un historial: así no hay que resolver acuses de recibo ni alertas rancias. Hay tres reglas:
+un historial: así no hay que resolver acuses de recibo ni alertas rancias. Hay cuatro reglas:
 
 - **Cruce de tramo.** Es la que justifica la función: con tarifa por tramos, pasar los 150 kWh
   sube el kWh marginal de ~$376 a ~$503. La alerta proyecta el consumo del ciclo, estima la
@@ -236,9 +238,22 @@ un historial: así no hay que resolver acuses de recibo ni alertas rancias. Hay 
   totales simplemente quedan bajos—, así que el silencio es una alerta explícita. Si callaron
   *todos*, el problema no es de un aparato: sale una sola alerta crítica apuntando al broker.
 - **Proyección por encima del ciclo anterior**, con umbral configurable.
+- **Objetivo de factura.** Si hay uno fijado y el ciclo proyecta pasarlo, avisa cuántos kWh
+  por día quedan para cumplirlo; también si ya se pasó, o si el objetivo está por debajo de
+  los cargos fijos y no se puede cumplir aunque no se consuma nada.
 
 Las reglas son una función pura del estado (`AlertRules`): reciben el contexto ya armado, sin
 base ni reloj, y por eso cada caso tiene su test.
+
+**El objetivo de factura se fija en pesos y se controla en kWh.** Es como se piensa la
+factura, pero lo único que se puede cambiar es el consumo, y con tramos, cargos fijos y
+recargos no hay regla de tres: pasar de $80.000 a $60.000 no es consumir un 25% menos de
+todo, porque los cargos fijos (~$12.000) no bajan y lo que se recorta sale del tramo caro.
+`GoalPlanner` busca sobre `BillCalculator` el máximo de kWh cuya factura reconstruida no pasa
+el objetivo, así el número respeta el prorrateo entre cuadros igual que el papel. Con la
+factura 09/2026, $60.000 alcanzan para ~133 kWh contra los 175 que vinieron. El objetivo se
+guarda en pesos, no en kWh: cuando cambia la tarifa, el presupuesto de kWh se recalcula solo.
+Se mide sólo contra el ciclo de facturación, no contra el mes calendario.
 
 **Un topic desconocido se auto-registra**, siempre como enchufe. Si llega telemetría de
 `tele/plug-nuevo/SENSOR` sin dispositivo en la base, se crea solo (y se avisa por SignalR):
@@ -454,6 +469,7 @@ tariff_surcharges     (id, tariff_schedule_id FK, name, rate)      -- % sobre el
 tariff_period_charges (id, tariff_schedule_id FK, name, amount)    -- monto fijo por período
 imported_bills   (id, invoice_number UNIQUE, period, reading_from, reading_to, days, kwh,
                   meter_start, meter_end, basic_amount, total_taxes, total, imported_at)
+bill_goals       (id, amount, updated_at)                          -- a lo sumo una fila
 ```
 
 Índices: `ix_energy_readings_device_timestamp` (historial), `ix_energy_readings_timestamp`
@@ -472,7 +488,7 @@ La API corre `Database.Migrate()` al arrancar, así que no hace falta aplicarlas
 ## Tests
 
 ```bash
-dotnet test EcoWattCasa.Tests                    # 246 tests, sin base ni broker
+dotnet test EcoWattCasa.Tests                    # 274 tests, sin base ni broker
 cd ecowatt-frontend && npx ng test --watch=false  # smoke del dashboard (vitest + jsdom)
 ```
 
@@ -490,7 +506,8 @@ cooperativa redondea a pesos enteros Cap.Rem.L.B.T. y Cap.Inv.Bienes de Uso.
 | `Billing/TariffScheduleFactoryTests` | Casos de borde de la deducción de cuadros: días que no cierran, factura sin detalle, importe básico en cero |
 | `Common/EnergyMathTests` | Contador reseteado, delta imposible, sin acumulado, una sola muestra |
 | `Common/BillingCyclesTests` | Ciclo anclado en la última lectura, avance de 30 días, ventanas UTC de un día local |
-| `Alerts/AlertRulesTests` | Cruce de tramo con los precios reales y su fecha estimada, dispositivo mudo vs. broker caído, umbrales configurables |
+| `Billing/GoalPlannerTests` | Objetivo en pesos → kWh: el total de una factura real devuelve sus kWh, el presupuesto nunca pasa el objetivo aun con dos cuadros en el período, objetivo por debajo de los cargos fijos |
+| `Alerts/AlertRulesTests` | Cruce de tramo con los precios reales y su fecha estimada, dispositivo mudo vs. broker caído, umbrales configurables, objetivo de factura en riesgo / pasado / imposible |
 
 La suite se verificó con **mutation testing**: revertir el reparto de tramos a kWh decimales
 tumba 6 tests (las tres facturas con aumento a mitad de período) y sacar la guarda del contador

@@ -212,6 +212,115 @@ table.bill tr.total td {
 }
 
 // ================================
+// Objetivo de factura
+// ================================
+// El estado se lee en la palabra del badge; el color de la barra y del borde lo refuerza.
+
+.goal-card {
+  margin-top: 1rem;
+  border-left: 3px solid $green;
+
+  &.risk {
+    border-left-color: $amber;
+  }
+
+  &.over {
+    border-left-color: $red-500;
+  }
+
+  &.impossible {
+    border-left-color: $slate-400;
+  }
+}
+
+.goal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.goal-amount {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: $text-strong;
+  font-variant-numeric: tabular-nums;
+
+  .muted {
+    margin-inline-start: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+}
+
+.goal-badge {
+  flex-shrink: 0;
+  padding: 0.15rem 0.6rem;
+  border-radius: $radius-pill;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba($green, 0.15);
+  color: $green-700;
+
+  .risk & {
+    background: rgba($amber, 0.15);
+    color: $amber-800;
+  }
+
+  .over & {
+    background: rgba($red-500, 0.12);
+    color: $red-700;
+  }
+
+  .impossible & {
+    background: rgba($slate-400, 0.18);
+    color: $text-soft;
+  }
+}
+
+.goal-bar {
+  margin: 0.85rem 0 0.4rem;
+  height: 8px;
+  border-radius: $radius-pill;
+  background: rgba($blue-600, 0.09);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: $radius-pill;
+    background: $green;
+  }
+
+  .risk & span {
+    background: $amber;
+  }
+
+  .over & span {
+    background: $red-500;
+  }
+
+  .impossible & span {
+    background: $slate-400;
+  }
+}
+
+.goal-advice {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: $text-soft;
+}
+
+.goal-cta {
+  margin-top: 1rem;
+}
+
+// ================================
 // Alertas
 // ================================
 // El color de estado nunca informa solo: cada alerta lleva la palabra de severidad al lado.
@@ -275,7 +384,7 @@ table.bill tr.total td {
 
     .alert__badge {
       background: rgba($amber, 0.15);
-      color: #92400e;
+      color: $amber-800;
     }
   }
 

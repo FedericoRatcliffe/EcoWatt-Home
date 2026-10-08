@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
+  BillGoal,
   BillImportResult,
   Device,
   DeviceInput,
@@ -12,7 +13,7 @@ import {
   TariffSchedule,
 } from '../../core/models/api.models';
 import { EcowattApi } from '../../core/services/ecowatt-api';
-import { money, moneyExact, percent, todayIso, watts } from '../../shared/format';
+import { kwh, money, moneyExact, percent, todayIso, watts } from '../../shared/format';
 
 const EMPTY_DEVICE: DeviceInput = {
   name: '',
@@ -54,6 +55,7 @@ export class Settings {
   private readonly api = inject(EcowattApi);
 
   protected readonly money = money;
+  protected readonly kwh = kwh;
   protected readonly moneyExact = moneyExact;
   protected readonly percent = percent;
   protected readonly watts = watts;
@@ -73,6 +75,11 @@ export class Settings {
   // ---------- Import de PDF ----------
   protected readonly importing = signal(false);
   protected readonly importResult = signal<BillImportResult | null>(null);
+
+  // ---------- Objetivo de factura ----------
+  protected readonly goal = signal<BillGoal | null>(null);
+  protected readonly goalInput = signal<number | null>(null);
+  protected readonly savingGoal = signal(false);
 
   // ---------- Formulario de tarifa ----------
   protected readonly validFrom = signal(todayIso());
@@ -94,6 +101,46 @@ export class Settings {
 
   constructor() {
     this.loadAll();
+  }
+
+  // ---------- Objetivo ----------
+
+  protected saveGoal(): void {
+    const amount = this.goalInput();
+    if (amount === null || !(amount > 0)) {
+      this.error.set('El objetivo tiene que ser un monto mayor a cero.');
+      return;
+    }
+
+    this.savingGoal.set(true);
+    this.error.set(null);
+
+    this.api.setGoal(amount).subscribe({
+      next: (g) => {
+        this.goal.set(g);
+        this.savingGoal.set(false);
+        this.notice.set(
+          g.kwhBudget !== null
+            ? `Objetivo guardado: ${money(g.amount)} alcanzan para ${kwh(g.kwhBudget)} en el ciclo.`
+            : 'Objetivo guardado.',
+        );
+      },
+      error: (err) => {
+        this.error.set(this.describe(err));
+        this.savingGoal.set(false);
+      },
+    });
+  }
+
+  protected clearGoal(): void {
+    this.api.clearGoal().subscribe({
+      next: () => {
+        this.goal.update((g) => (g ? { ...g, amount: null, updatedAt: null, kwhBudget: null } : g));
+        this.goalInput.set(null);
+        this.notice.set('Objetivo quitado.');
+      },
+      error: (err) => this.error.set(this.describe(err)),
+    });
   }
 
   // ---------- Tarifa ----------
@@ -371,6 +418,12 @@ export class Settings {
       },
     });
 
+    this.api.getGoal().subscribe({
+      next: (g) => {
+        this.goal.set(g);
+        this.goalInput.set(g.amount);
+      },
+    });
     this.api.getTariffHistory().subscribe({ next: (h) => this.tariffHistory.set(h) });
     this.api.getBills().subscribe({ next: (b) => this.bills.set(b) });
     this.api.getDevices().subscribe({ next: (d) => this.devices.set(d) });

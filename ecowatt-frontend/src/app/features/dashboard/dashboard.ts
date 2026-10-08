@@ -7,6 +7,7 @@ import {
   CycleInfo,
   DailyDashboard,
   DeviceConsumption,
+  GoalProgress,
   PeriodDashboard,
 } from '../../core/models/api.models';
 import { EcowattApi } from '../../core/services/ecowatt-api';
@@ -164,6 +165,16 @@ export class Dashboard {
     return projection
       ? { value: projection.averagePricePerKwh, label: 'medio proyectado' }
       : { value: this.bill()?.averagePricePerKwh ?? 0, label: 'medio' };
+  });
+
+  /**
+   * El ciclo contra el objetivo de factura, en palabras. El consejo va en kWh por dia y no en
+   * pesos: es lo unico que se puede controlar, y la tarifa por tramos hace que la plata no
+   * baje en proporcion a los kWh.
+   */
+  protected readonly goalView = computed(() => {
+    const g = this.period()?.goal;
+    return g ? describeGoal(g) : null;
   });
 
   /** Costo por dispositivo en el periodo: una sola serie, un color, valor al final de la barra. */
@@ -423,5 +434,68 @@ export class Dashboard {
       return 'No hay ninguna tarifa cargada. Importa una factura desde Configuracion.';
     }
     return e?.error?.error ?? 'Error inesperado al consultar la API.';
+  }
+}
+
+type GoalKind = 'ok' | 'risk' | 'over' | 'impossible';
+
+/** Etiqueta, consejo y avance del objetivo. La etiqueta siempre acompana al color. */
+function describeGoal(g: GoalProgress): { kind: GoalKind; label: string; advice: string; usedPercent: number } {
+  const usedPercent = g.kwhBudget > 0 ? Math.min(100, (g.consumedKwh / g.kwhBudget) * 100) : 100;
+  const perDay = (value: number | null) => `${kwh(value)} por dia`;
+  const days = g.daysLeft === 1 ? 'el dia que falta' : `los ${g.daysLeft} dias que faltan`;
+
+  switch (g.status) {
+    case 'Unreachable':
+      return {
+        kind: 'impossible',
+        label: 'Imposible',
+        advice:
+          `Con la tarifa actual la factura sale ${money(g.minimumCost)} sin consumir nada: ` +
+          'cargos fijos e impuestos que no dependen del consumo. El objetivo queda por debajo.',
+        usedPercent,
+      };
+
+    case 'Exceeded':
+      return g.isOpen
+        ? {
+            kind: 'over',
+            label: 'Pasado',
+            advice: `Ya se consumio mas de lo que permitia el objetivo. Al ritmo actual cierra en ${money(g.projectedCost)}.`,
+            usedPercent,
+          }
+        : {
+            kind: 'over',
+            label: 'No cumplido',
+            advice: `El ciclo cerro en ${money(g.projectedCost)}, ${money(g.projectedCost - g.amount)} arriba del objetivo.`,
+            usedPercent,
+          };
+
+    case 'AtRisk':
+      return {
+        kind: 'risk',
+        label: 'En riesgo',
+        advice:
+          `Al ritmo actual (${perDay(g.currentKwhPerDay)}) cierra en ${money(g.projectedCost)}. ` +
+          `Para cumplirlo: hasta ${perDay(g.allowedKwhPerDay)} en ${days}.`,
+        usedPercent,
+      };
+
+    default:
+      return g.isOpen
+        ? {
+            kind: 'ok',
+            label: 'En camino',
+            advice:
+              `Al ritmo actual cierra en ${money(g.projectedCost)}. ` +
+              `Margen: hasta ${perDay(g.allowedKwhPerDay)} en ${days}.`,
+            usedPercent,
+          }
+        : {
+            kind: 'ok',
+            label: 'Cumplido',
+            advice: `El ciclo cerro en ${money(g.projectedCost)}, dentro del objetivo.`,
+            usedPercent,
+          };
   }
 }

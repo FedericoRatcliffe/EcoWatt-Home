@@ -18,6 +18,9 @@ public class EcoWattDbContext(DbContextOptions<EcoWattDbContext> options) : DbCo
 
     public DbSet<ImportedBill> ImportedBills => Set<ImportedBill>();
 
+    /// <summary>Objetivo de factura de la casa. A lo sumo una fila.</summary>
+    public DbSet<BillGoal> BillGoals => Set<BillGoal>();
+
     /// <summary>Auditoria de los comandos de rele, ejecutados y rechazados.</summary>
     public DbSet<RelayCommand> RelayCommands => Set<RelayCommand>();
 

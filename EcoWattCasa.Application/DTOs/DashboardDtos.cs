@@ -1,3 +1,5 @@
+using EcoWattCasa.Application.Common;
+
 namespace EcoWattCasa.Application.DTOs;
 
 /// <summary>Consumo y costo de un dispositivo en un periodo.</summary>
@@ -84,6 +86,52 @@ public sealed record ProjectionDto(
     decimal ProjectedCost,
     decimal AveragePricePerKwh);
 
+/// <summary>El ciclo contra el objetivo de factura. Los campos se explican en <see cref="GoalProgress"/>.</summary>
+public sealed record GoalProgressDto(
+    decimal Amount,
+    decimal MinimumCost,
+    double KwhBudget,
+    double ConsumedKwh,
+    double RemainingKwh,
+    int DaysLeft,
+    double? AllowedKwhPerDay,
+    double CurrentKwhPerDay,
+    decimal ProjectedCost,
+    bool IsOpen,
+    GoalStatus Status)
+{
+    public static GoalProgressDto From(GoalProgress g)
+        => new(
+            g.Amount,
+            g.MinimumCost,
+            g.KwhBudget,
+            g.ConsumedKwh,
+            g.RemainingKwh,
+            g.DaysLeft,
+            g.AllowedKwhPerDay,
+            g.CurrentKwhPerDay,
+            g.ProjectedCost,
+            g.IsOpen,
+            g.Status);
+}
+
+/// <summary>
+/// El objetivo de factura de la casa, con lo que significa en el ciclo en curso.
+/// Sin objetivo fijado, <paramref name="Amount"/> viene null.
+/// </summary>
+/// <param name="MinimumCost">
+/// Factura del ciclo en curso sin consumir nada: un objetivo por debajo no se puede cumplir.
+/// null si no hay tarifa cargada.
+/// </param>
+/// <param name="KwhBudget">kWh del ciclo en curso que permite el objetivo.</param>
+public sealed record BillGoalDto(
+    decimal? Amount,
+    DateTimeOffset? UpdatedAt,
+    decimal? MinimumCost,
+    double? KwhBudget);
+
+public sealed record SetBillGoalDto(decimal Amount);
+
 /// <summary>Dashboard del dia: cards por dispositivo y curva horaria de la casa.</summary>
 public sealed record DailyDashboardDto(
     DateOnly Date,
@@ -104,6 +152,10 @@ public sealed record DailyDashboardDto(
 /// el periodo actual esta abierto: medio ciclo contra uno entero no dice nada.
 /// </param>
 /// <param name="ComparisonIsPartial">true mientras el periodo en curso no termino.</param>
+/// <param name="Goal">
+/// El periodo contra el objetivo de factura. Solo en el ciclo de facturacion: el objetivo es
+/// de la factura, y el mes calendario no es lo que se factura. null sin objetivo o sin tarifa.
+/// </param>
 public sealed record PeriodDashboardDto(
     string Label,
     DateOnly From,
@@ -117,4 +169,5 @@ public sealed record PeriodDashboardDto(
     ProjectionDto? Projection,
     IReadOnlyList<DeviceConsumptionDto> Devices,
     IReadOnlyList<HistoryPointDto> Daily,
-    HouseSplitDto House);
+    HouseSplitDto House,
+    GoalProgressDto? Goal);
