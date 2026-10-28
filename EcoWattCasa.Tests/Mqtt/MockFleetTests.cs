@@ -117,7 +117,7 @@ public class MockFleetTests
     {
         var parsed = Run();
 
-        foreach (var topic in new[] { "plug-paula", "plug-andy-1", "plug-andy-2", "plug-fede" })
+        foreach (var topic in new[] { "plug-paula", "plug-andy-1", "plug-fede-habitacion", "plug-fede" })
         {
             Assert.False(parsed[topic].IsMultiChannel);
             Assert.False(parsed[topic].Power.IsArray);

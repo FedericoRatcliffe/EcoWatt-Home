@@ -375,7 +375,7 @@ electrodomésticos sueltos.
 |---|---|
 | `plug-paula` | Zapatilla de Paula |
 | `plug-andy-1` | Zapatilla de Andy (1) |
-| `plug-andy-2` | Zapatilla de Andy (2) |
+| `plug-fede-habitacion` | Zapatilla de la habitacion de Fede — sólo un televisor |
 | `plug-fede` | Zapatilla de Fede — la más cargada |
 
 El `Topic` que se carga en cada Tasmota tiene que coincidir con el de la tabla. Nombre,
@@ -424,7 +424,7 @@ Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerDelta 0; PowerO
   DHCP en el router, porque si cambia los equipos dejan de reportar.
 - **`Topic`** — el nombre del dispositivo, sin los prefijos `tele/`, `stat/` ni `cmnd/`. Tiene
   que coincidir con el que figura en Configuración. Los que siembra la base son
-  `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-andy-2` y `plug-fede`.
+  `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-fede-habitacion` y `plug-fede`.
 - **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
   (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
 

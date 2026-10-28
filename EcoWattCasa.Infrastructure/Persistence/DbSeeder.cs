@@ -43,7 +43,8 @@ public static class DbSeeder
             DeviceType.AthomPlugV3, DeviceRole.Appliance,
             ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 60),
 
-        new("plug-andy-2", "Zapatilla Andy 2", "Andy", 600,
+        // Solo un televisor colgado de una zapatilla, asi que el nominal es bajo.
+        new("plug-fede-habitacion", "Zapatilla Fede Habitacion", "Fede", 150,
             DeviceType.AthomPlugV3, DeviceRole.Appliance,
             ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 60),
 

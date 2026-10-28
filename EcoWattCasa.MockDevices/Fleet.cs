@@ -49,7 +49,7 @@ internal sealed class Fleet
             SimulatedDevice.Plug("plug-andy-1", totalStart,
                 new RandomWalkProfile(idleWatts: 16, minWatts: 8, maxWatts: 600, spikeChance: 0.010)),
 
-            SimulatedDevice.Plug("plug-andy-2", totalStart,
+            SimulatedDevice.Plug("plug-fede-habitacion", totalStart,
                 new RandomWalkProfile(idleWatts: 15, minWatts: 8, maxWatts: 600, spikeChance: 0.008)),
 
             // La mas cargada: Ryzen 5 5500 + RX 7600 dan ~400 W de la pared jugando, y con
