@@ -417,7 +417,7 @@ Al encenderlo por primera vez levanta un access point propio llamado **`tasmota-
 Desde la consola de Tasmota (**Consola** en su página web), una sola línea:
 
 ```
-Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; Topic plug-fede
+Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerOnState 1; Power ON; Topic plug-fede
 ```
 
 - **`MqttHost`** — la IP de la PC donde corre la API. Verificala con `ipconfig` y fijala por
@@ -427,6 +427,20 @@ Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; Topic plug-fede
   `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-andy-2` y `plug-fede`.
 - **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
   (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
+
+> **Los enchufes vienen con el relé abierto.** De fábrica no entregan corriente hasta que
+> alguien los enciende, y el `PowerOnState` viene en 3 (recordar el último estado), que para una
+> zapatilla con una PC es malo: si se corta la luz estando apagado, vuelve apagado. Por eso la
+> línea lleva `PowerOnState 1` y `Power ON`.
+>
+> Ojo con el orden de descubrimiento: si el dispositivo ya está en la base con el relé
+> **bloqueado**, tampoco se puede encender desde el dashboard — `RelayGuard` rechaza en los dos
+> sentidos, no sólo el apagado. Se enciende desde la consola de Tasmota, o desbloqueando
+> primero en Configuración.
+>
+> Y el enchufe sólo devuelve la corriente: no aprieta el botón de encendido de lo que cuelga.
+> Una PC o un televisor que perdieron la alimentación siguen apagados hasta que alguien los
+> prenda.
 
 > **El orden importa: `Topic` va último.** Ese comando reinicia el equipo, así que cualquier
 > cosa que venga después en el `Backlog` se pierde sin avisar — `TelePeriod` queda en los 300 s
