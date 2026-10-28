@@ -417,7 +417,7 @@ Al encenderlo por primera vez levanta un access point propio llamado **`tasmota-
 Desde la consola de Tasmota (**Consola** en su página web), una sola línea:
 
 ```
-Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerOnState 1; Power ON; Topic plug-fede
+Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerDelta 0; PowerOnState 1; Power ON; Topic plug-fede
 ```
 
 - **`MqttHost`** — la IP de la PC donde corre la API. Verificala con `ipconfig` y fijala por
@@ -427,6 +427,15 @@ Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerOnState 1; Powe
   `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-andy-2` y `plug-fede`.
 - **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
   (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
+
+> **`PowerDelta` viene en 101 y hay que apagarlo.** Es el default de Athom y significa
+> "publicar ante un cambio de 1 W" (en Tasmota, 101‑200 es un umbral absoluto de valor − 100).
+> Una zapatilla que oscila entre 39 y 40 W publica **una vez por segundo**, lo que anula el
+> `TelePeriod` por completo: 86.400 lecturas por día en vez de 2.880, treinta veces lo
+> presupuestado más abajo. Con `PowerDelta 0` sólo manda lo que marca `TelePeriod`.
+>
+> No se pierde precisión: los kWh salen del contador acumulado `ENERGY.Total`, no de integrar
+> las muestras. Lo único que cambia es cada cuánto se refresca el "consumo ahora" del dashboard.
 
 > **Los enchufes vienen con el relé abierto.** De fábrica no entregan corriente hasta que
 > alguien los enciende, y el `PowerOnState` viene en 3 (recordar el último estado), que para una
