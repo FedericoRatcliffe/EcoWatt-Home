@@ -141,3 +141,45 @@
   color: $text-soft;
   line-height: 1.5;
 }
+
+// ================================
+// Transiciones de la ultima hora
+// ================================
+// El signo y el valor van en texto: el color acompaña pero no es el que informa.
+
+.transitions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.transitions li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid $border-soft;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.transitions .when {
+  min-width: 6.5rem;
+  color: $text-faint;
+  font-variant-numeric: tabular-nums;
+}
+
+.transitions .delta {
+  min-width: 5.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: $green-700;
+}
+
+// Subio el consumo: algo se prendio.
+.transitions li.subio .delta {
+  color: $red-500;
+}

@@ -67,7 +67,13 @@
       <div class="card">
         <div class="stat-label">Consumo del periodo</div>
         <div class="stat-value">{{ kwh(history()?.totalKwh) }}</div>
-        <div class="stat-sub">nominal declarado: {{ d.nominalWatts }} W</div>
+        <div class="stat-sub">
+          @if (peakWatts(); as pico) {
+            pico medido: {{ watts(pico) }}
+          } @else {
+            nominal declarado: {{ d.nominalWatts }} W
+          }
+        </div>
       </div>
       <div class="card">
         <div class="stat-label">Costo del periodo</div>
@@ -128,12 +134,45 @@
             </tbody>
           </table>
         </div>
+      } @else if (isRawMode()) {
+        @if (raw().length === 0) {
+          <div class="empty">Sin lecturas en la ultima hora.</div>
+        } @else {
+          <app-chart [option]="rawOption()" [height]="320" />
+        }
       } @else if ((history()?.points ?? []).length === 0) {
         <div class="empty">Sin lecturas en este periodo.</div>
       } @else {
         <app-chart [option]="historyOption()" [height]="320" />
       }
     </div>
+
+    @if (isRawMode()) {
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Que paso en la ultima hora</h2>
+            <span class="sub">saltos de {{ watts(15) }} o mas entre muestras</span>
+          </div>
+        </div>
+
+        @if (transitions().length === 0) {
+          <div class="empty">
+            Nada se prendio ni se apago: el consumo se mantuvo parejo toda la hora.
+          </div>
+        } @else {
+          <ul class="transitions">
+            @for (t of transitions(); track t.at) {
+              <li [class.subio]="t.delta > 0">
+                <span class="when">{{ dateTime(t.at) }}</span>
+                <span class="delta">{{ t.delta > 0 ? '+' : '' }}{{ watts(t.delta) }}</span>
+                <span class="muted">quedo en {{ watts(t.to) }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
 
     @if (d.hasRelay) {
       <div class="card">

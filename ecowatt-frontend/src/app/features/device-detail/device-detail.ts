@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { EChartsCoreOption } from 'echarts/core';
-import { Device, DeviceHistory, RelayCommand } from '../../core/models/api.models';
+import { Device, DeviceHistory, EnergyReading, RelayCommand } from '../../core/models/api.models';
 import { EcowattApi } from '../../core/services/ecowatt-api';
 import { Realtime } from '../../core/services/realtime';
 import { Chart } from '../../shared/chart';
@@ -45,7 +45,15 @@ const OUTCOME_LABELS: Record<string, string> = {
   Failed: 'fallo',
 };
 
+/**
+ * Salto de potencia a partir del cual se considera que algo se prendio o se apago, y no que
+ * la carga fluctuo sola. Un televisor pasando de standby a encendido son ~70 W; la oscilacion
+ * de una zapatilla en reposo, 1 o 2 W.
+ */
+const TRANSITION_WATTS = 15;
+
 const RANGES: RangeOption[] = [
+  { label: '1 h', hours: 1 },
   { label: '24 h', hours: 24 },
   { label: '7 dias', hours: 24 * 7 },
   { label: '30 dias', hours: 24 * 30 },
@@ -103,9 +111,112 @@ export class DeviceDetail {
     return live ? live.on : (this.device()?.relayOn ?? null);
   });
 
+  /** Lecturas crudas. Solo se piden en el rango de 1 h, que es el unico que las dibuja. */
+  protected readonly raw = signal<EnergyReading[]>([]);
+
+  /**
+   * En 1 h se grafican las muestras crudas en watts, no kWh por hora.
+   *
+   * Un grafico de kWh por hora con una sola hora de datos es una barra suelta que no dice
+   * nada. Con las muestras se ve la forma real del consumo: cuando prendio algo, cuanto
+   * escalo, cuando se apago.
+   */
+  protected readonly isRawMode = computed(() => this.hours() <= 1);
+
+  /**
+   * Pico efectivamente medido en el rango. Reemplaza al "nominal declarado", que es un numero
+   * que cargamos a mano y que nadie va a mantener.
+   *
+   * Es el maximo de las MUESTRAS, no el pico real: entre una muestra y la siguiente pasan 30 s
+   * y un arranque de milisegundos no queda registrado.
+   */
+  protected readonly peakWatts = computed<number | null>(() => {
+    const valores = this.isRawMode()
+      ? this.raw().map((r) => r.watts)
+      : (this.history()?.points ?? []).map((p) => p.maxWatts);
+
+    return valores.length > 0 ? Math.max(...valores) : null;
+  });
+
+  /**
+   * Momentos en que algo se prendio o se apago, derivados de las muestras crudas.
+   *
+   * Es lo que no se ve en el grafico de barras: el grafico muestra cuanta energia, esto
+   * muestra que paso y cuando.
+   */
+  protected readonly transitions = computed(() => {
+    const rows = this.raw();
+    const out: { at: string; delta: number; to: number }[] = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const delta = rows[i].watts - rows[i - 1].watts;
+      if (Math.abs(delta) >= TRANSITION_WATTS) {
+        out.push({ at: rows[i].timestampUtc, delta, to: rows[i].watts });
+      }
+    }
+
+    return out.reverse();
+  });
+
   protected readonly byHour = computed(() => this.hours() <= 48);
 
   protected readonly bucketLabel = computed(() => (this.byHour() ? hourLabel : dayLabel));
+
+  /** Curva de potencia muestra a muestra, para el rango de 1 h. */
+  protected readonly rawOption = computed<EChartsCoreOption>(() => {
+    const t = this.themeWatcher.theme();
+    const rows = this.raw();
+    const hora = (iso: string) =>
+      new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+    return {
+      textStyle: { fontFamily: t.font },
+      grid: { left: 4, right: 12, top: 16, bottom: 4, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'line' },
+        backgroundColor: t.surface,
+        borderColor: t.baseline,
+        borderWidth: 1,
+        borderRadius: 10,
+        extraCssText: 'box-shadow: 0 6px 20px rgba(0, 40, 80, 0.12);',
+        textStyle: { color: t.textPrimary, fontSize: 12, fontFamily: t.font },
+        formatter: (params: Array<{ dataIndex: number }>) => {
+          const r = rows[params[0]?.dataIndex ?? 0];
+          if (!r) return '';
+          return `<b>${hora(r.timestampUtc)}</b><br/>${watts(r.watts)}<br/>${r.voltage} V &middot; ${r.amperage} A`;
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: rows.map((r) => hora(r.timestampUtc)),
+        axisLine: { lineStyle: { color: t.baseline, width: 1 } },
+        axisTick: { show: false },
+        axisLabel: { color: t.muted, fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'W',
+        nameTextStyle: { color: t.muted, fontSize: 11, align: 'left' },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: t.muted, fontSize: 11 },
+        splitLine: { lineStyle: { color: t.grid, width: 1, type: 'solid' } },
+      },
+      series: [
+        {
+          type: 'line',
+          data: rows.map((r) => r.watts),
+          // Escalonada y no suavizada: entre dos muestras no sabemos que paso, y una curva
+          // redondeada inventaria una transicion gradual que puede no haber existido.
+          step: 'end',
+          symbol: 'none',
+          lineStyle: { color: t.series1, width: 2 },
+          areaStyle: { color: t.series1Soft },
+        },
+      ],
+    };
+  });
 
   /** Consumo por bucket: una sola serie, columnas finas con la punta redondeada. */
   protected readonly historyOption = computed<EChartsCoreOption>(() => {
@@ -264,6 +375,28 @@ export class DeviceDetail {
         this.error.set('No se pudo traer el historial.');
         done();
       },
+    });
+
+    this.loadRaw();
+  }
+
+  /**
+   * Las muestras crudas de la ultima hora. Solo hacen falta en el rango de 1 h: en 7 o 30 dias
+   * serian decenas de miles de puntos para dibujar una curva que nadie puede leer.
+   */
+  private loadRaw(): void {
+    if (!this.isRawMode()) {
+      this.raw.set([]);
+      return;
+    }
+
+    const to = new Date();
+    const from = new Date(to.getTime() - 60 * 60 * 1000);
+
+    this.api.getDeviceReadings(this.id(), from, to, 2000).subscribe({
+      next: (rows) => this.raw.set(rows),
+      // Es informacion de apoyo: si falla, el resto de la ficha sigue sirviendo.
+      error: () => this.raw.set([]),
     });
   }
 }
