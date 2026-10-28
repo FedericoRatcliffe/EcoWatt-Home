@@ -417,7 +417,7 @@ Al encenderlo por primera vez levanta un access point propio llamado **`tasmota-
 Desde la consola de Tasmota (**Consola** en su página web), una sola línea:
 
 ```
-Backlog MqttHost 192.168.1.7; MqttPort 1883; Topic plug-fede; TelePeriod 30
+Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; Topic plug-fede
 ```
 
 - **`MqttHost`** — la IP de la PC donde corre la API. Verificala con `ipconfig` y fijala por
@@ -427,6 +427,11 @@ Backlog MqttHost 192.168.1.7; MqttPort 1883; Topic plug-fede; TelePeriod 30
   `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-andy-2` y `plug-fede`.
 - **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
   (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
+
+> **El orden importa: `Topic` va último.** Ese comando reinicia el equipo, así que cualquier
+> cosa que venga después en el `Backlog` se pierde sin avisar — `TelePeriod` queda en los 300 s
+> de fábrica y uno se entera recién al ver que llega una lectura cada cinco minutos. Verificalo
+> después con `TelePeriod` a secas, que devuelve el valor actual.
 
 **Sobre TelePeriod: 30 s, no 10.** El mínimo que acepta Tasmota es 10 s, pero con 5 equipos son
 43.200 filas por día — unas 900.000 en la ventana de retención de 21 días. Con 30 s son 14.400
