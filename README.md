@@ -310,12 +310,17 @@ Para lo que se mide acá sobra margen. La zapatilla más cargada es la de Fede:
 | | Pico estimado |
 |---|---|
 | PC (Ryzen 5 5500 + RX 7600, fuente CX650) | ~400 W de la pared |
-| 2 monitores | ~120 W |
-| Home theater a volumen alto | ~300 W |
+| 2× ADAM Audio T8V (monitores activos) | ~260 W |
+| Televisor | ~150 W |
 | Luces LED | ~60 W |
-| **Total** | **~880 W — el 40% del límite** |
+| **Total, todo al mango a la vez** | **~870 W — el 40% del límite** |
 
-La fuente de 650 W es capacidad, no consumo: con esos componentes trabaja al 45‑55%.
+Dos aclaraciones sobre esos números, porque los dos invitan a sobreestimar:
+
+- **La fuente de 650 W es capacidad, no consumo.** Con esos componentes trabaja al 45‑55%.
+- **Los 70 W + 20 W de cada T8V son potencia de salida, no consumo de la pared.** La música es
+  dinámica: en escucha normal cada monitor tira 20‑40 W. Los 260 W de la tabla son el caso de
+  ambos empujando fuerte a la vez.
 
 **Lo que nunca puede ir en estas zapatillas**, porque cualquiera solo se come los 2.200 W:
 
@@ -324,6 +329,16 @@ La fuente de 650 W es capacidad, no consumo: con esos componentes trabaja al 45�
 
 Tampoco encadenar una segunda zapatilla a la primera. Si en algún momento hace falta medir algo
 de esos, va desde el tablero, no desde un enchufe.
+
+### El pico de arranque
+
+Encender una zapatilla entera de golpe prende al mismo tiempo la fuente de la PC, las de los
+monitores activos y la del televisor. Eso produce un pico de arranque breve pero muy por encima
+del consumo en régimen. No es un problema de capacidad —el relé lo aguanta— pero repetirlo
+seguido le desgasta los contactos, y con monitores activos además puede dar un *pop* en los
+conos al volver la corriente.
+
+Es la otra razón del `MinRelayIntervalSeconds` de 60 s, además del relé bloqueado.
 
 ### Por qué los cuatro relés van bloqueados
 
