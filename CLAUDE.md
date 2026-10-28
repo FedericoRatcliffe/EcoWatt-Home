@@ -123,6 +123,15 @@ componente, `inject()` en vez de constructor, control flow `@if`/`@for` (nunca `
   que llega el hardware real: hay que sacarse de encima el consumo simulado pero conservar
   topic, canal y bloqueo del rele. Borra las dos tablas, cruda y rollup: dejar el rollup vivo
   haria que el dashboard siguiera mostrando el consumo viejo.
+- **Los enchufes instalados son de 10A, no de 16A** (Athom mando el modelo equivocado; el
+  reclamo esta hecho). El techo es 2.200 W y aplica a la SUMA de la zapatilla, porque cada
+  enchufe mide una zapatilla entera con PC, monitores, audio y luces, no un aparato suelto.
+  Nada con resistencia puede ir ahi: estufa, pava, plancha, secador, aspiradora, microondas.
+  El detalle y las cuentas estan en el README, "Enchufes de 10A".
+- **Los cuatro enchufes van con el rele bloqueado.** El `RelayLocked` se diseno para la
+  heladera, que al final no se mide, pero las cuatro zapatillas tienen una PC encendida y
+  cortarlas de golpe es trabajo perdido. Si un seed o un test asume que hay enchufes
+  conmutables, es ese supuesto el que esta viejo.
 - **Los timestamps los pone el servidor.** El campo `Time` de Tasmota se ignora a proposito
   (un equipo que se reinicia pierde la hora). No lo "arregles".
 - **Todo se persiste en UTC (`timestamptz`) y se agrega en hora de Buenos Aires** via

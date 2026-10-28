@@ -13,8 +13,20 @@ public static class DbSeeder
 {
     /// <summary>
     /// Los cinco equipos Athom comprados, con el mismo topic que hay que configurar en cada
-    /// uno por la consola de Tasmota. Los consumos nominales estan calibrados contra las
-    /// facturas reales de la casa (~175 kWh/mes, 243 W promedio).
+    /// uno por la consola de Tasmota.
+    ///
+    /// Los cuatro enchufes miden ZAPATILLAS, no aparatos sueltos: cada uno cuelga de una
+    /// zapatilla con PC, monitores, home theater y luces. Eso tiene dos consecuencias.
+    ///
+    /// La primera es el limite: los enchufes que llegaron son de 10A (2.200 W) y el tope
+    /// aplica a la SUMA de la zapatilla, no a un aparato. Ver README, "Enchufes de 10A".
+    ///
+    /// La segunda es el rele: van los cuatro bloqueados. Cortarle la corriente de golpe a una
+    /// PC encendida es trabajo perdido, y en el peor caso un sistema de archivos danado. Se
+    /// desbloquea a mano el que se quiera poder conmutar.
+    ///
+    /// Los consumos nominales son estimaciones del pico de cada zapatilla; se corrigen cuando
+    /// haya medicion real. Son solo informativos: no alimentan ningun calculo.
     /// </summary>
     public static readonly DeviceSeed[] Devices =
     [
@@ -23,24 +35,23 @@ public static class DbSeeder
             DeviceType.AthomEm2, DeviceRole.HouseMeter,
             ChannelIndex: 0, RelayLocked: false, MinRelayIntervalSeconds: 0),
 
-        // La heladera lleva el rele bloqueado: un corte por error arruina la comida, y el
-        // minimo de 10 minutos protege al compresor del ciclado corto.
-        new("plug-heladera", "Heladera", "Cocina", 130,
+        new("plug-paula", "Zapatilla Paula", "Paula", 500,
             DeviceType.AthomPlugV3, DeviceRole.Appliance,
-            ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 600),
+            ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 60),
 
-        new("plug-pc", "PC + monitores", "Escritorio", 240,
+        new("plug-andy-1", "Zapatilla Andy 1", "Andy", 600,
             DeviceType.AthomPlugV3, DeviceRole.Appliance,
-            ChannelIndex: 0, RelayLocked: false, MinRelayIntervalSeconds: 60),
+            ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 60),
 
-        new("plug-lavarropas", "Lavarropas", "Lavadero", 450,
+        new("plug-andy-2", "Zapatilla Andy 2", "Andy", 600,
             DeviceType.AthomPlugV3, DeviceRole.Appliance,
-            ChannelIndex: 0, RelayLocked: false, MinRelayIntervalSeconds: 60),
+            ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 60),
 
-        // El cuarto enchufe queda sin asignar hasta que se decida que medir.
-        new("plug-libre", "Enchufe libre", "Sin asignar", 0,
+        // La mas cargada: Ryzen 5 5500 + RX 7600 dan ~350 W de la pared jugando, y con
+        // monitores, audio y luces la zapatilla llega a ~880 W de pico.
+        new("plug-fede", "Zapatilla Fede", "Fede", 900,
             DeviceType.AthomPlugV3, DeviceRole.Appliance,
-            ChannelIndex: 0, RelayLocked: false, MinRelayIntervalSeconds: 60)
+            ChannelIndex: 0, RelayLocked: true, MinRelayIntervalSeconds: 60)
     ];
 
     public sealed record DeviceSeed(

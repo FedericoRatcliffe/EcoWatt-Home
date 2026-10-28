@@ -117,7 +117,7 @@ public class MockFleetTests
     {
         var parsed = Run();
 
-        foreach (var topic in new[] { "plug-heladera", "plug-pc", "plug-lavarropas", "plug-libre" })
+        foreach (var topic in new[] { "plug-paula", "plug-andy-1", "plug-andy-2", "plug-fede" })
         {
             Assert.False(parsed[topic].IsMultiChannel);
             Assert.False(parsed[topic].Power.IsArray);
@@ -150,7 +150,7 @@ public class MockFleetTests
     [Fact]
     public void El_consumo_simulado_se_parece_al_de_las_facturas()
     {
-        // Las facturas reales dan ~175 kWh/mes, o sea 243 W promedio; el mock da ~247. La
+        // Las facturas reales dan ~175 kWh/mes, o sea 243 W promedio; el mock da ~259. La
         // banda es de +-15% a proposito: no busca clavar un numero, busca que un dispositivo
         // que deje de sumar o un perfil con un cero de mas se note.
         var fleet = Fleet.Build();
@@ -173,7 +173,7 @@ public class MockFleetTests
         var fleet = Fleet.Build();
         var rng = new Random(42);
         var step = TimeSpan.FromMinutes(1);
-        var pc = fleet.Plugs.Single(p => p.Topic == "plug-pc");
+        var pc = fleet.Plugs.Single(p => p.Topic == "plug-fede");
 
         double House(int i) => fleet.Step(step, Start.AddMinutes(i), rng).Single(s => !s.Device.HasRelay).Sample.Watts;
 
@@ -224,11 +224,22 @@ public class MockFleetTests
     }
 
     [Fact]
-    public void El_enchufe_sin_nada_conectado_mide_cero()
+    public void Ninguna_zapatilla_llega_al_limite_del_enchufe()
     {
-        var energy = Run()["plug-libre"];
+        // Los enchufes que llegaron son de 10A, o sea 2.200 W, y el tope aplica a la suma de
+        // la zapatilla. Si el mock simulara mas que eso estaria modelando una sobrecarga.
+        var fleet = Fleet.Build();
+        var rng = new Random(17);
 
-        Assert.Equal(0d, energy.ForChannel(0).Power);
-        Assert.Equal(0d, energy.ForChannel(0).Total);
+        for (var i = 0; i < 288; i++)
+        {
+            foreach (var (device, sample) in fleet.Step(TimeSpan.FromMinutes(5), Start.AddMinutes(i * 5), rng))
+            {
+                if (!device.HasRelay)
+                    continue;
+
+                Assert.True(sample.Watts <= 2_200d, $"{device.Topic} simulo {sample.Watts:0} W");
+            }
+        }
     }
 }

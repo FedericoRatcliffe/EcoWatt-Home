@@ -42,35 +42,32 @@ internal sealed class DutyCycleProfile(TimeSpan onFor, TimeSpan offFor, double w
 }
 
 /// <summary>
-/// Carga que se mueve sola alrededor de un valor de reposo, con picos ocasionales:
-/// una PC con monitores.
+/// Carga que se mueve sola alrededor de un valor de reposo, con picos ocasionales: una
+/// zapatilla de escritorio, que pasa casi todo el dia en standby y se dispara cuando se
+/// enciende la PC.
 /// </summary>
-internal sealed class RandomWalkProfile : LoadProfile
+/// <param name="spikeChance">
+/// Probabilidad por paso de que arranque algo pesado. Es lo que gobierna el promedio: un pico
+/// tarda varios pasos en decaer, asi que con un techo alto una probabilidad grande deja la
+/// media muy por encima del reposo. Para una zapatilla que se usa unas horas por dia, el
+/// orden es 0,01.
+/// </param>
+internal sealed class RandomWalkProfile(
+    double idleWatts, double minWatts, double maxWatts, double spikeChance = 0.04) : LoadProfile
 {
-    private readonly double _idleWatts;
-    private readonly double _minWatts;
-    private readonly double _maxWatts;
-    private double _watts;
-
-    public RandomWalkProfile(double idleWatts, double minWatts, double maxWatts)
-    {
-        _idleWatts = idleWatts;
-        _minWatts = minWatts;
-        _maxWatts = maxWatts;
-        _watts = idleWatts;
-    }
+    private double _watts = idleWatts;
 
     public override double NextWatts(TimeSpan step, Random rng)
     {
         // Tira hacia el reposo, mas un empujon al azar.
-        var pullToIdle = (_idleWatts - _watts) * 0.15;
+        var pullToIdle = (idleWatts - _watts) * 0.15;
         var noise = (rng.NextDouble() - 0.5) * 40;
 
-        // Cada tanto arranca algo pesado (compilar, un juego) y se va al techo.
-        if (rng.NextDouble() < 0.04)
-            noise += rng.NextDouble() * (_maxWatts - _watts) * 0.8;
+        // Cada tanto arranca algo pesado (se enciende la PC, un juego) y se va al techo.
+        if (rng.NextDouble() < spikeChance)
+            noise += rng.NextDouble() * (maxWatts - _watts) * 0.8;
 
-        _watts = Math.Clamp(_watts + pullToIdle + noise, _minWatts, _maxWatts);
+        _watts = Math.Clamp(_watts + pullToIdle + noise, minWatts, maxWatts);
         return _watts;
     }
 }

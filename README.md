@@ -274,7 +274,7 @@ payload en el sistema: **todo es Tasmota**.
 | Equipo | Qué es | Dónde va | Relé |
 |---|---|---|---|
 | 1× **Athom EM2** "2 CH Energy Meter" | ESP32‑C3 de riel DIN, 1 canal de tensión y 2 de corriente | Tablero principal, sobre la acometida | No |
-| 4× **Athom Plug V3** (PG05V3‑AU16A‑TAS) | Enchufe con medición y relé, ficha AU compatible con IRAM 2073 | Heladera, PC, lavarropas, uno libre | Sí |
+| 4× **Athom Plug V3** (recibidos **AU10A**, ver abajo) | Enchufe con medición y relé, ficha AU compatible con IRAM 2073 | Una zapatilla cada uno: Paula, Andy 1, Andy 2, Fede | Sí, bloqueado |
 
 Instalación monofásica 220 V / 50 Hz. El tablero principal y el sub‑tablero están en lugares
 distintos, así que **no se mide por circuito**: se mide el total de la casa y algunos aparatos.
@@ -288,19 +288,75 @@ media casa no sirve para nada. El EM2 aporta el total real; los enchufes explica
 El EM2 se compró con **una sola pinza CT**, así que su segundo canal reporta cero. El sistema
 lo soporta igual: cada dispositivo tiene un `ChannelIndex` configurable.
 
-### Pendiente: el cuarto enchufe
+### Enchufes de 10A, no de 16A
 
-`plug-libre` está dado de alta, mide y aparece en el dashboard, pero todavía no tiene nada
-conectado: figura en "Sin asignar" y reporta 0 W. Queda así **a propósito**, hasta decidir qué
-conviene medir con él.
+Se pidieron los **AU16A** (SKU `PG05V3-AU16A-TAS-2`, confirmado en el pedido) pero Athom envió
+los **AU10A**. El grabado del aparato manda sobre el SKU del pedido:
 
-Para asignarlo no hace falta tocar código: en Configuración se le cambia el nombre, la
-ubicación y la potencia nominal. El `Topic` de Tasmota puede quedar como está — lo que se ve en
-pantalla es el nombre, no el topic.
+```
+Model: PG05 V3 AU10A
+Input: AC 100-240V    Max Load: 10A
+```
 
-Candidatos razonables, por lo que aportarían al desglose: termotanque eléctrico si lo hubiera,
-aire acondicionado, microondas, o el televisor. Conviene elegir algo que hoy esté cayendo dentro
-del consumo no identificado y que valga la pena separar.
+No hay chequeo por software que lo desmienta: el 10A y el 16A comparten el mismo ESP32‑C3 y el
+mismo chip de medición, así que Tasmota se ve igual en los dos. El límite lo ponen el relé y los
+conductores internos. El reclamo está hecho; **mientras tanto se trabaja con 10A**.
+
+**El techo es 2.200 W (10A × 220V) y aplica a la suma de la zapatilla**, no a un aparato: el
+enchufe inteligente está aguas arriba y carga con todo lo que cuelgue de ella.
+
+Para lo que se mide acá sobra margen. La zapatilla más cargada es la de Fede:
+
+| | Pico estimado |
+|---|---|
+| PC (Ryzen 5 5500 + RX 7600, fuente CX650) | ~400 W de la pared |
+| 2 monitores | ~120 W |
+| Home theater a volumen alto | ~300 W |
+| Luces LED | ~60 W |
+| **Total** | **~880 W — el 40% del límite** |
+
+La fuente de 650 W es capacidad, no consumo: con esos componentes trabaja al 45‑55%.
+
+**Lo que nunca puede ir en estas zapatillas**, porque cualquiera solo se come los 2.200 W:
+
+> estufa eléctrica · caloventor · pava eléctrica · plancha · secador de pelo · aspiradora ·
+> microondas
+
+Tampoco encadenar una segunda zapatilla a la primera. Si en algún momento hace falta medir algo
+de esos, va desde el tablero, no desde un enchufe.
+
+### Por qué los cuatro relés van bloqueados
+
+El `RelayLocked` se diseñó para la heladera, que al final no se mide. Pero el riesgo no
+desapareció, cambió de forma: **las cuatro zapatillas tienen una PC encendida**, y cortarles la
+corriente de golpe es trabajo perdido y, en el peor caso, un sistema de archivos dañado.
+
+Por eso los cuatro se siembran con el relé bloqueado. Se desbloquea desde Configuración el que
+se quiera poder conmutar. El `MinRelayIntervalSeconds` de 60 s sigue siendo útil igual: encender
+una zapatilla llena de fuentes conmutadas y un amplificador produce un pico de arranque alto, y
+no conviene repetirlo seguido.
+
+### Qué se gana y qué se pierde midiendo zapatillas
+
+Se pierde resolución: el desglose dice *"Zapatilla Fede: 45 kWh"*, no cuánto fue la PC y cuánto
+el home theater. Con una zapatilla no hay forma de separarlos.
+
+Se gana cobertura: cuatro zapatillas con PCs, audio e iluminación son una porción grande de la
+casa, así que el **consumo no identificado** baja bastante respecto de medir tres
+electrodomésticos sueltos.
+
+### Los cuatro enchufes están asignados
+
+| Topic | Qué mide |
+|---|---|
+| `plug-paula` | Zapatilla de Paula |
+| `plug-andy-1` | Zapatilla de Andy (1) |
+| `plug-andy-2` | Zapatilla de Andy (2) |
+| `plug-fede` | Zapatilla de Fede — la más cargada |
+
+El `Topic` que se carga en cada Tasmota tiene que coincidir con el de la tabla. Nombre,
+ubicación y potencia nominal se editan desde Configuración sin tocar código: `NominalWatts` es
+sólo informativo y no alimenta ningún cálculo.
 
 ### Consumo no identificado
 
@@ -337,14 +393,14 @@ Al encenderlo por primera vez levanta un access point propio llamado **`tasmota-
 Desde la consola de Tasmota (**Consola** en su página web), una sola línea:
 
 ```
-Backlog MqttHost 192.168.0.27; MqttPort 1883; Topic plug-heladera; TelePeriod 30
+Backlog MqttHost 192.168.1.7; MqttPort 1883; Topic plug-fede; TelePeriod 30
 ```
 
 - **`MqttHost`** — la IP de la PC donde corre la API. Verificala con `ipconfig` y fijala por
   DHCP en el router, porque si cambia los equipos dejan de reportar.
 - **`Topic`** — el nombre del dispositivo, sin los prefijos `tele/`, `stat/` ni `cmnd/`. Tiene
   que coincidir con el que figura en Configuración. Los que siembra la base son
-  `em2-tablero`, `plug-heladera`, `plug-pc`, `plug-lavarropas` y `plug-libre`.
+  `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-andy-2` y `plug-fede`.
 - **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
   (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
 
@@ -375,7 +431,7 @@ En el dashboard el equipo aparece solo en cuanto llega su primer mensaje. Si no 
 
 ```bash
 # Escuchar todo lo que entra al broker
-mosquitto_sub -h 192.168.0.27 -t '#' -v
+mosquitto_sub -h 192.168.1.7 -t '#' -v
 ```
 
 El broker embebido escucha en todas las interfaces, así que los equipos de la LAN llegan sin

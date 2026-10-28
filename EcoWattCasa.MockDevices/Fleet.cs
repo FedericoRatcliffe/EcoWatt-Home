@@ -35,31 +35,33 @@ internal sealed class Fleet
         var totalStart = DateTimeOffset.UtcNow.AddMonths(-3);
 
         // Los perfiles estan calibrados contra las facturas reales de la casa: ~175 kWh/mes,
-        // o sea 243 W promedio. Los enchufes ponen ~132 W de esos y el resto (~108 W) es el
-        // consumo que no pasa por ningun enchufe medido.
+        // o sea 243 W promedio. Las cuatro zapatillas ponen ~120 W de esos y el resto (~123 W)
+        // es lo que no pasa por ninguna.
+        //
+        // Cada enchufe mide una ZAPATILLA entera (PC, monitores, home theater, luces), no un
+        // aparato: por eso el perfil es un paseo alrededor de un reposo bajo con picos altos
+        // cuando la PC se usa, y no un ciclo de encendido/apagado como el de un compresor.
         SimulatedDevice[] plugs =
         [
-            // Heladera: compresor 14 min prendido a 130 W, 26 min en reposo. ~1,1 kWh/dia.
-            // En la base va con el rele bloqueado, pero el equipo fisico igual lo tiene:
-            // el que no deja apagarla es el backend, no el enchufe.
-            SimulatedDevice.Plug("plug-heladera", totalStart,
-                new DutyCycleProfile(TimeSpan.FromMinutes(14), TimeSpan.FromMinutes(26), wattsOn: 130, wattsOff: 2)),
+            SimulatedDevice.Plug("plug-paula", totalStart,
+                new RandomWalkProfile(idleWatts: 14, minWatts: 7, maxWatts: 450, spikeChance: 0.010)),
 
-            // PC con monitores: reposo bajo y picos cuando compila o juega. ~1,7 kWh/dia.
-            SimulatedDevice.Plug("plug-pc", totalStart,
-                new RandomWalkProfile(idleWatts: 65, minWatts: 35, maxWatts: 240)),
+            SimulatedDevice.Plug("plug-andy-1", totalStart,
+                new RandomWalkProfile(idleWatts: 16, minWatts: 8, maxWatts: 600, spikeChance: 0.010)),
 
-            // Lavarropas: un ciclo de 45 min por dia y el resto en standby. ~0,36 kWh/dia.
-            SimulatedDevice.Plug("plug-lavarropas", totalStart,
-                new DutyCycleProfile(TimeSpan.FromMinutes(45), TimeSpan.FromMinutes(1395), wattsOn: 450, wattsOff: 1)),
+            SimulatedDevice.Plug("plug-andy-2", totalStart,
+                new RandomWalkProfile(idleWatts: 15, minWatts: 8, maxWatts: 600, spikeChance: 0.008)),
 
-            // El cuarto enchufe todavia no tiene nada conectado: mide cero, que es un caso
-            // que conviene tener en el mock (tarjetas en cero, promedios con divisor cero).
-            SimulatedDevice.Plug("plug-libre", totalStart, new IdleChannelProfile())
+            // La mas cargada: Ryzen 5 5500 + RX 7600 dan ~400 W de la pared jugando, y con
+            // monitores, audio y luces la zapatilla pica cerca de 880 W. Sigue siendo el 40%
+            // del limite de 10A del enchufe.
+            SimulatedDevice.Plug("plug-fede", totalStart,
+                new RandomWalkProfile(idleWatts: 20, minWatts: 10, maxWatts: 880, spikeChance: 0.012))
         ];
 
-        // Luces, TV, microondas, cargadores: ~108 W promedio con pico a la noche.
-        var baseline = new HouseholdBaselineProfile(nightWatts: 65, dayWatts: 95, eveningWatts: 165);
+        // Lo que no pasa por ninguna zapatilla: heladera, lavarropas, cocina, el resto de las
+        // luces. Sube de tarde y de noche.
+        var baseline = new HouseholdBaselineProfile(nightWatts: 70, dayWatts: 98, eveningWatts: 165);
 
         // El EM2 comprado trae una sola pinza, asi que el canal 1 queda sin medir.
         // Con SO129 1 publica los dos canales igual, el segundo en cero.
