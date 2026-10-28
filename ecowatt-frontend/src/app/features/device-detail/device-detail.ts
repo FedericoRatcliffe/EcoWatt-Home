@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { EChartsCoreOption } from 'echarts/core';
 import { Device, DeviceHistory, RelayCommand } from '../../core/models/api.models';
@@ -16,6 +24,9 @@ import {
   percent,
   watts,
 } from '../../shared/format';
+
+/** Cada cuánto se refrescan los agregados. Los watts en vivo llegan por SignalR. */
+const REFRESH_MS = 60_000;
 
 interface RangeOption {
   label: string;
@@ -153,6 +164,11 @@ export class DeviceDetail {
     // input.required no esta disponible en el constructor: se lee en el primer effect implicito
     // del load, disparado por el propio router al bindear el parametro.
     queueMicrotask(() => this.load(false));
+
+    // El consumo y el costo del período son agregados que se calculan en el backend, así que
+    // no los mueve el hub: sin esto la ficha se queda congelada en lo que había al abrirla.
+    const timer = setInterval(() => this.load(true), REFRESH_MS);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }
 
   protected setRange(hours: number): void {

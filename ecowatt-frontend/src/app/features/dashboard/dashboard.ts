@@ -343,7 +343,6 @@ export class Dashboard {
   });
 
   constructor() {
-    void this.realtime.start();
     // Dato informativo: si falla, el dashboard igual sirve, solo no muestra el pie de ciclo.
     this.api.getCycleInfo().subscribe({
       next: (c) => this.cycleInfo.set(c),
