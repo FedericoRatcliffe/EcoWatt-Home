@@ -310,17 +310,26 @@ Para lo que se mide acá sobra margen. La zapatilla más cargada es la de Fede:
 | | Pico estimado |
 |---|---|
 | PC (Ryzen 5 5500 + RX 7600, fuente CX650) | ~400 W de la pared |
-| 2× ADAM Audio T8V (monitores activos) | ~260 W |
+| 2× ADAM Audio T8V (monitores activos) | **300 W** — 150 W máx. cada uno, según la etiqueta |
 | Televisor | ~150 W |
 | Luces LED | ~60 W |
-| **Total, todo al mango a la vez** | **~870 W — el 40% del límite** |
+| **Total, todo al mango a la vez** | **~910 W — el 41% del límite** |
 
 Dos aclaraciones sobre esos números, porque los dos invitan a sobreestimar:
 
 - **La fuente de 650 W es capacidad, no consumo.** Con esos componentes trabaja al 45‑55%.
-- **Los 70 W + 20 W de cada T8V son potencia de salida, no consumo de la pared.** La música es
-  dinámica: en escucha normal cada monitor tira 20‑40 W. Los 260 W de la tabla son el caso de
-  ambos empujando fuerte a la vez.
+- **Los 150 W de cada T8V son el máximo de la etiqueta, no el consumo típico.** Es el techo que
+  el equipo puede llegar a tomar a plena salida. La música es dinámica: en escucha normal cada
+  monitor tira 20‑40 W. Los 300 W de la tabla son el caso de ambos a fondo al mismo tiempo, que
+  en la práctica casi no ocurre.
+
+### Los monitores activos exigen toma con tierra
+
+La etiqueta de los T8V dice **"USE EARTHED MAINS CONNECTION ONLY"**. El enchufe Athom tiene
+tres patas y pasa la tierra, así que no la interrumpe. Lo que hay que verificar es que **el
+tomacorriente de la pared la tenga realmente conectada**: en instalaciones viejas es común que
+la pata exista y no haya nada cableado detrás. Además de seguridad, sin tierra los monitores
+suelen meter zumbido.
 
 **Lo que nunca puede ir en estas zapatillas**, porque cualquiera solo se come los 2.200 W:
 
