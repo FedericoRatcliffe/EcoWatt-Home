@@ -505,6 +505,52 @@ configuración que hay que conservar.
 
 ---
 
+## Dejarlo andando
+
+Para medir un ciclo de facturación completo el backend tiene que estar vivo **todo el mes**.
+Tasmota publica y olvida: lo que no se ingiere en el momento no se recupera nunca, así que cada
+hora caída es un agujero permanente en los datos.
+
+### Qué tiene que estar prendido
+
+| | ¿24/7? |
+|---|---|
+| PostgreSQL | Sí — es servicio de Windows con arranque automático, no hay que hacer nada |
+| **La API** | **Sí** — recibe MQTT y persiste. Sin ella no hay datos |
+| El frontend (`npm start`) | No — sólo para mirar el dashboard |
+
+### Build de release, no `dotnet run`
+
+`dotnet run` es para desarrollo: recompila al arrancar y deja el SDK colgado. Para dejarlo
+andando se publica una vez y se ejecuta el `.exe`:
+
+```bash
+dotnet publish EcoWattCasa.API -c Release -o publish/api
+```
+
+Eso genera `publish/` (ignorado por git). El arranque va por `ecowatt-api.cmd`, en la raíz del
+repo, que fija el puerto 5080 —el que espera el proxy del frontend— y el entorno `Production`.
+
+El broker MQTT escucha aparte en `0.0.0.0:1883`, así que los equipos de la LAN llegan igual
+aunque la API sólo sirva HTTP en `localhost`.
+
+### Que arranque solo
+
+En un mes Windows se reinicia por actualizaciones sí o sí. Si la API no vuelve sola se pierden
+horas o días sin que nadie se entere. Se registra una tarea al inicio de sesión, desde una
+consola en la raíz del repo:
+
+```
+schtasks /Create /TN "EcoWatt API" /TR "%CD%\ecowatt-api.cmd" /SC ONLOGON /F
+```
+
+O por interfaz: **Programador de tareas → Crear tarea básica**, desencadenador *Al iniciar
+sesión*, acción *Iniciar un programa*, y apuntar a `ecowatt-api.cmd`.
+
+Para verificar que quedó: `schtasks /Query /TN "EcoWatt API"`.
+
+---
+
 ## El relé
 
 Los cuatro enchufes tienen relé; el EM2 no. Un ON/OFF pasa por tres controles antes de llegar
