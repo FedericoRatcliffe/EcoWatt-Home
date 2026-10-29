@@ -20,3 +20,6 @@ appsettings.Local.json
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Build de release para correr desatendido (ver README, "Dejarlo andando")
+publish/
