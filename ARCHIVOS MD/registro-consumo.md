@@ -9,16 +9,25 @@ Para pasar watts a plata se usa el precio marginal del kWh al momento de la entr
 
 ## Que mide cada equipo
 
-| Equipo | Que tiene enchufado |
-|---|---|
-| Medidor de tablero (EM2) | La casa entera |
-| Zapatilla Fede | La PC y la tele. Los monitores de estudio Adam Audio T8V van directo a la pared (desde el 30/10/2026) |
-| Zapatilla Fede Habitacion | Cargador del celu, cargador de la notebook y tele (desde el 30/10/2026) |
-| Zapatilla Andy 1 | Sin relevar todavia |
-| Zapatilla Paula | Sin relevar todavia |
+Relevado el 30/10/2026. "Siempre" es lo que queda enchufado de base; "a veces" son cosas que
+entran y salen, asi que un salto en esas zapatillas puede ser solo un cargador.
 
-Lo que no pasa por ningun enchufe medido (heladera, router, luces, cocina) aparece como
-"no identificado": la diferencia entre el medidor y la suma de los enchufes.
+| Equipo | Siempre | A veces |
+|---|---|---|
+| Medidor de tablero (EM2) | La casa entera | |
+| Zapatilla Fede | La PC y la tele, que se usa como monitor de la PC | Cargador de la notebook, cargador del celu |
+| Zapatilla Fede Habitacion | La tele de la habitacion | Cargadores u otra cosa que haga falta |
+| Zapatilla Andy 1 | Impresora, DVR de las camaras, cargador de notebook, 2 lamparas, tele y home theater | |
+| Zapatilla Paula | PC, monitor/tele, home theater y 1 lampara | |
+
+- **Zapatilla Andy 1** es una zapatilla de dos tomas con otra zapatilla enchufada en una de
+  ellas: todo lo que cuelga de las dos pasa por el mismo enchufe medido, y el techo de
+  2.200 W de los enchufes de 10A aplica a la suma.
+- **Los monitores de estudio Adam Audio T8V van directo a la pared**, fuera de cualquier
+  enchufe medido (desde el 30/10/2026).
+
+Lo que no pasa por ningun enchufe medido (heladera, router, luces, cocina, los T8V) aparece
+como "no identificado": la diferencia entre el medidor y la suma de los enchufes.
 
 ---
 
@@ -63,10 +72,14 @@ demas, nadie usando nada. Sin huecos en la telemetria.
   cuesta unos $8.000 por mes; una Raspberry Pi gastaria unos $1.000.
 - **Zapatilla Andy 1: 49 W fijos toda la noche, sin un solo cambio.** Algo queda prendido sin
   usarse. Es el standby mas grande de la casa, mas que la PC. A las 06:43 subio a ~128 W:
-  alguien la empezo a usar. **Pendiente:** averiguar que es.
+  alguien la empezo a usar. Con el relevamiento del 30/10 se explica: el DVR de las camaras
+  anda 24/7 a proposito, y el resto (impresora, cargador de notebook siempre enchufado, tele
+  y home theater) suma standby. Falta separar cuanto es cada uno.
 - **Zapatilla Fede Habitacion:** 70-90 W con la tele hasta las 03:22, ~25 W hasta las 04:27
   (la notebook terminando de cargar), y despues ~2 W. Toda la noche fueron 0,085 kWh.
-- **Zapatilla Paula:** 7 W fijos de standby toda la noche.
+- **Zapatilla Paula:** 7 W fijos de standby toda la noche. Con PC, monitor/tele, home
+  theater y lampara enchufados, es el standby de equipos apagados: la PC de Paula no queda
+  prendida de noche.
 - **06:40, pico de 1,38 kW durante 1,5 min fuera de los enchufes.** Es normal: la hermana
   se levanta a esa hora para ir al colegio y se prenden cosas (pava, microondas o similar).
 
@@ -105,10 +118,26 @@ tablero en paralelo.
 - Despues del experimento los monitores quedaron enchufados directo a la pared, fuera de
   cualquier enchufe medido: su consumo (minimo) cae en "no identificado".
 
+## 30/10/2026 - El salto de las 14:48 en la Zapatilla Fede
+
+Mientras se comia, la Zapatilla Fede estuvo en 44-47 W de 13:00 a 14:47: la PC en espera con
+la pantalla apagada, no suspendida (se desperto con solo mover el mouse). Es ~13 W mas que el
+reposo de la noche (32 W), cuando habia entrado en un estado mas profundo.
+
+A las 14:48, al volver, se prendio la tele y se movio el mouse: la zapatilla salto a 125-162 W
+y quedo estable en ~120 W (+77 W, tele mas PC despierta). El medidor de tablero subio lo mismo
+(+95 W, con la heladera). La Zapatilla Fede Habitacion siguio en 0 W. Nada raro: es el uso
+normal.
+
+- **Idea:** que la PC se suspenda sola tras un rato sin uso ahorraria esos ~13 W en cada
+  ausencia, salvo cuando tenga que quedar prendida para la API.
+
 ## Pendientes
 
-- [ ] Que queda prendido en la Zapatilla Andy 1 (49 W fijos de noche).
-- [ ] Relevar que hay enchufado en las zapatillas de Andy 1 y de Paula.
+- [ ] Separar el standby de la Zapatilla Andy 1 (49 W fijos de noche): cuanto es el DVR,
+  que tiene que quedar prendido, y cuanto el resto (impresora, cargador, tele, home theater).
+- [x] Relevar que hay enchufado en la zapatilla de Andy 1 (30/10).
+- [x] Relevar que hay enchufado en la Zapatilla Paula (30/10).
 - [x] Experimento: verificar que la Zapatilla Fede lea el consumo de los Adam Audio T8V
   (30/10: lee bien, los monitores consumen muy poco).
 - [ ] Revisar si el adaptador de los T8V conecta la tierra.
