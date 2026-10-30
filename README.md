@@ -537,15 +537,21 @@ aunque la API sólo sirva HTTP en `localhost`.
 ### Que arranque solo
 
 En un mes Windows se reinicia por actualizaciones sí o sí. Si la API no vuelve sola se pierden
-horas o días sin que nadie se entere. Se registra una tarea al inicio de sesión, desde una
-consola en la raíz del repo:
+horas o días sin que nadie se entere.
+
+**La forma simple, sin permisos de administrador:** un acceso directo a `ecowatt-api.cmd` en la
+carpeta de Inicio. `Win + R` → `shell:startup` → pegar ahí el acceso directo.
+
+**La alternativa, con consola elevada:**
 
 ```
 schtasks /Create /TN "EcoWatt API" /TR "%CD%\ecowatt-api.cmd" /SC ONLOGON /F
 ```
 
-O por interfaz: **Programador de tareas → Crear tarea básica**, desencadenador *Al iniciar
-sesión*, acción *Iniciar un programa*, y apuntar a `ecowatt-api.cmd`.
+`schtasks /Create` con `/SC ONLOGON` **falla con "Acceso denegado"** en una consola normal: hay
+que abrir el Símbolo del sistema como administrador. La única ventaja sobre la carpeta de Inicio
+es que el Programador puede arrancar la tarea sin que nadie inicie sesión, cosa que no hace
+falta si la máquina queda logueada.
 
 Para verificar que quedó: `schtasks /Query /TN "EcoWatt API"`.
 
