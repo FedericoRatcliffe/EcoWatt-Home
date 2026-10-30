@@ -146,10 +146,14 @@ public sealed record DailyDashboardDto(
 /// Dashboard del periodo facturable: la factura completa, el desglose por dispositivo y la
 /// curva diaria. <paramref name="IsBillingCycle"/> distingue el ciclo real del mes calendario.
 /// </summary>
-/// <param name="PreviousPeriodCost">Total del periodo anterior, completo.</param>
+/// <param name="PreviousPeriodCost">
+/// Total del periodo anterior, completo. null si no se llego a medir lo suficiente para
+/// compararse (ver <see cref="Common.CycleProjection.IsComparable"/>).
+/// </param>
 /// <param name="PreviousPeriodCostToDate">
 /// Lo que iba el periodo anterior a esta misma altura. Es contra esto que se compara mientras
-/// el periodo actual esta abierto: medio ciclo contra uno entero no dice nada.
+/// el periodo actual esta abierto: medio ciclo contra uno entero no dice nada. null igual que
+/// <paramref name="PreviousPeriodCost"/>.
 /// </param>
 /// <param name="ComparisonIsPartial">true mientras el periodo en curso no termino.</param>
 /// <param name="Goal">
@@ -162,8 +166,8 @@ public sealed record PeriodDashboardDto(
     DateOnly To,
     bool IsBillingCycle,
     BillDto Bill,
-    decimal PreviousPeriodCost,
-    decimal PreviousPeriodCostToDate,
+    decimal? PreviousPeriodCost,
+    decimal? PreviousPeriodCostToDate,
     bool ComparisonIsPartial,
     double? ChangePercentVsPreviousPeriod,
     ProjectionDto? Projection,

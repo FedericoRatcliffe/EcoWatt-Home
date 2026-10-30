@@ -105,7 +105,7 @@ public sealed class DashboardService(
         var closing = ClosingSchedule(history, window.To);
 
         var perDevice = new Dictionary<Guid, DeviceTotals>();
-        var dailyPoints = await BuildDailyAsync(window, allDevices, perDevice, ct);
+        var (dailyPoints, measuredHours) = await BuildDailyAsync(window, allDevices, perDevice, ct);
         var totalKwh = dailyPoints.Sum(p => p.Kwh);
 
         var bill = BillCalculator.Build(window.From, window.To, totalKwh, history);
@@ -127,15 +127,18 @@ public sealed class DashboardService(
         var elapsed = window.Contains(tz.Today) ? window.ElapsedDays(tz.Today) : window.Days;
         var isPartial = elapsed < window.Days;
 
-        var previousBill = await BuildBillAsync(previous, allDevices, history, ct);
+        // Un ciclo anterior medido a medias (la API apagada, el historial borrado) factura casi
+        // solo los cargos fijos: compararse contra eso no dice nada, asi que no se compara.
+        var (previousBill, previousHours) = await BuildBillAsync(previous, allDevices, history, ct);
+        var previousIsComparable = CycleProjection.IsComparable(previousHours, previous);
         var comparisonBill = isPartial
-            ? await BuildBillAsync(Truncate(previous, elapsed), allDevices, history, ct)
+            ? (await BuildBillAsync(Truncate(previous, elapsed), allDevices, history, ct)).Bill
             : previousBill;
 
-        var projection = BuildProjection(window, totalKwh, elapsed, history);
+        var projection = BuildProjection(window, totalKwh, measuredHours, elapsed, history);
         var goal = await BuildGoalAsync(window, elapsed, totalKwh, projection?.ProjectedCost ?? bill.Total, history, ct);
 
-        double? change = comparisonBill.Total > 0m
+        double? change = previousIsComparable && comparisonBill.Total > 0m
             ? Math.Round((double)((bill.Total - comparisonBill.Total) / comparisonBill.Total) * 100d, 2)
             : null;
 
@@ -145,8 +148,8 @@ public sealed class DashboardService(
             window.To,
             window.IsBillingCycle,
             MapBill(bill),
-            previousBill.Total,
-            comparisonBill.Total,
+            previousIsComparable ? previousBill.Total : null,
+            previousIsComparable ? comparisonBill.Total : null,
             isPartial,
             change,
             projection,
@@ -217,28 +220,39 @@ public sealed class DashboardService(
         return new PeriodWindow(from, window.From, $"Ciclo {from:dd/MM} - {window.From.AddDays(-1):dd/MM}", true);
     }
 
-    private async Task<List<HistoryPointDto>> BuildDailyAsync(
+    /// <returns>Los puntos diarios y cuantas horas de la ventana tienen lectura de la casa.</returns>
+    private async Task<(List<HistoryPointDto> Points, int MeasuredHours)> BuildDailyAsync(
         PeriodWindow window, IReadOnlyList<Device> allDevices, Dictionary<Guid, DeviceTotals> perDevice, CancellationToken ct)
     {
         var (fromUtc, toUtc) = cycles.ToUtc(window);
         var hourly = await readings.GetHourlySamplesAsync(fromUtc, toUtc, ct);
-        return FoldBuckets(hourly, allDevices, tz.Zone, BucketGranularity.Day, perDevice);
+
+        var houseDevices = HouseConsumption.HouseSeriesDevices(allDevices);
+        var measuredHours = hourly
+            .Where(b => houseDevices.Contains(b.DeviceId))
+            .Select(b => b.BucketStartUtc)
+            .Distinct()
+            .Count();
+
+        return (FoldBuckets(hourly, allDevices, tz.Zone, BucketGranularity.Day, perDevice), measuredHours);
     }
 
-    private async Task<BillBreakdown> BuildBillAsync(
+    private async Task<(BillBreakdown Bill, int MeasuredHours)> BuildBillAsync(
         PeriodWindow window, IReadOnlyList<Device> allDevices, IReadOnlyList<TariffSchedule> history, CancellationToken ct)
     {
-        var points = await BuildDailyAsync(window, allDevices, new Dictionary<Guid, DeviceTotals>(), ct);
-        return BillCalculator.Build(window.From, window.To, points.Sum(p => p.Kwh), history);
+        var (points, measuredHours) = await BuildDailyAsync(window, allDevices, new Dictionary<Guid, DeviceTotals>(), ct);
+        return (BillCalculator.Build(window.From, window.To, points.Sum(p => p.Kwh), history), measuredHours);
     }
 
     private ProjectionDto? BuildProjection(
-        PeriodWindow window, double totalKwh, int elapsed, IReadOnlyList<TariffSchedule> history)
+        PeriodWindow window, double totalKwh, int measuredHours, int elapsed, IReadOnlyList<TariffSchedule> history)
     {
         if (!window.Contains(tz.Today) || elapsed <= 0 || elapsed >= window.Days)
             return null;
 
-        var projectedKwh = totalKwh / elapsed * window.Days;
+        if (CycleProjection.ProjectKwh(totalKwh, measuredHours, window.Days) is not { } projectedKwh)
+            return null;
+
         var projectedBill = BillCalculator.Build(window.From, window.To, projectedKwh, history);
 
         return new ProjectionDto(

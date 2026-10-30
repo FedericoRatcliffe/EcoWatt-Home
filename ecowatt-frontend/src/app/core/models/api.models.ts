@@ -231,9 +231,9 @@ export interface PeriodDashboard {
   isBillingCycle: boolean;
   bill: Bill;
   /** Total del período anterior, completo. */
-  previousPeriodCost: number;
+  previousPeriodCost: number | null;
   /** Lo que iba el período anterior a esta misma altura: contra esto se compara. */
-  previousPeriodCostToDate: number;
+  previousPeriodCostToDate: number | null;
   comparisonIsPartial: boolean;
   changePercentVsPreviousPeriod: number | null;
   projection: Projection | null;

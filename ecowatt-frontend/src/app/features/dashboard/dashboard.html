@@ -93,17 +93,23 @@
               Dia {{ pr.elapsedDays }} de {{ pr.totalDays }} &middot; si sigue este ritmo cierra en
               <strong>{{ money(pr.projectedCost) }}</strong> ({{ kwh(pr.projectedKwh) }})
             </div>
+          } @else if (period()?.comparisonIsPartial) {
+            <div class="stat-sub">La proyeccion aparece con un dia entero medido</div>
           }
 
           @if (period(); as p) {
-            <div class="stat-sub">
-              @if (p.comparisonIsPartial) {
-                Ciclo anterior: {{ money(p.previousPeriodCostToDate) }} a esta altura,
-                {{ money(p.previousPeriodCost) }} al cierre
-              } @else {
-                Periodo anterior: {{ money(p.previousPeriodCost) }}
-              }
-            </div>
+            @if (p.previousPeriodCost === null) {
+              <div class="stat-sub">El periodo anterior no se midio completo: no hay con que comparar</div>
+            } @else {
+              <div class="stat-sub">
+                @if (p.comparisonIsPartial) {
+                  Ciclo anterior: {{ money(p.previousPeriodCostToDate ?? 0) }} a esta altura,
+                  {{ money(p.previousPeriodCost) }} al cierre
+                } @else {
+                  Periodo anterior: {{ money(p.previousPeriodCost) }}
+                }
+              </div>
+            }
           }
         </div>
 

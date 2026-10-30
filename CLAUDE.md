@@ -23,7 +23,7 @@ Postgres (cubre el ciclo actual y el anterior, que es lo que la comparacion nece
 
 ```bash
 dotnet build                                               # solucion entera (EcoWattCasa.slnx)
-dotnet test EcoWattCasa.Tests                              # 274 tests, ~250 ms, sin base ni red
+dotnet test EcoWattCasa.Tests                              # 280 tests, ~250 ms, sin base ni red
 cd ecowatt-frontend && npx ng test --watch=false            # smoke del dashboard (vitest + jsdom)
 docker compose --profile mock up -d --build                 # todo en Docker, frontend en :8081
 

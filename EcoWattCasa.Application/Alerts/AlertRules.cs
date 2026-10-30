@@ -50,6 +50,7 @@ public sealed class AlertThresholds
 }
 
 /// <summary>Todo lo que las reglas necesitan para decidir, ya resuelto.</summary>
+/// <param name="PreviousCycleCost">0 si el ciclo anterior no se midio lo suficiente para compararse.</param>
 /// <param name="Goal">El ciclo contra el objetivo de factura. null si no hay objetivo fijado.</param>
 public sealed record AlertContext(
     PeriodWindow Cycle,

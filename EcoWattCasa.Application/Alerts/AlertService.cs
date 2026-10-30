@@ -45,7 +45,8 @@ public sealed class AlertService(
         var history = await tariffs.GetHistoryAsync(ct);
         var period = await dashboard.GetPeriodAsync(useBillingCycle: true, offset: 0, year: null, month: null, ct);
 
-        // La proyeccion solo existe con el ciclo abierto; cerrado, lo proyectado es lo real.
+        // Sin proyeccion (el ciclo ya cerro, o todavia no hay un dia entero medido) se usa lo
+        // real: avisa solo si lo consumido ya alcanza, nunca por un ritmo sacado de unas horas.
         var projectedKwh = period.Projection?.ProjectedKwh ?? period.Bill.TotalKwh;
         var projectedCost = period.Projection?.ProjectedCost ?? period.Bill.Total;
 
@@ -75,7 +76,7 @@ public sealed class AlertService(
             period.Bill.TotalKwh,
             projectedKwh,
             projectedCost,
-            period.PreviousPeriodCost,
+            period.PreviousPeriodCost ?? 0m,
             ClosingTariff(history, cycle.To),
             statuses,
             goalProgress);

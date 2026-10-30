@@ -237,7 +237,12 @@ un historial: así no hay que resolver acuses de recibo ni alertas rancias. Hay 
 - **Dispositivo mudo.** Un enchufe que deja de reportar no se nota mirando el dashboard —los
   totales simplemente quedan bajos—, así que el silencio es una alerta explícita. Si callaron
   *todos*, el problema no es de un aparato: sale una sola alerta crítica apuntando al broker.
-- **Proyección por encima del ciclo anterior**, con umbral configurable.
+- **Proyección por encima del ciclo anterior**, con umbral configurable. La proyección sale
+  del ritmo de las horas *medidas*, no de los días del calendario, y no existe hasta tener un
+  día entero de datos: a la 1 de la mañana del primer día, una hora contada como día entero
+  proyectaba la vigésima parte de lo real. Y el ciclo anterior sólo se compara si se midió al
+  menos el 90 % de sus horas; después de borrar el historial, o con la API apagada varios días,
+  factura casi sólo los cargos fijos y cualquier ciclo normal parecería un salto.
 - **Objetivo de factura.** Si hay uno fijado y el ciclo proyecta pasarlo, avisa cuántos kWh
   por día quedan para cumplirlo; también si ya se pasó, o si el objetivo está por debajo de
   los cargos fijos y no se puede cumplir aunque no se consuma nada.
@@ -665,7 +670,7 @@ La API corre `Database.Migrate()` al arrancar, así que no hace falta aplicarlas
 ## Tests
 
 ```bash
-dotnet test EcoWattCasa.Tests                    # 274 tests, sin base ni broker
+dotnet test EcoWattCasa.Tests                    # 280 tests, sin base ni broker
 cd ecowatt-frontend && npx ng test --watch=false  # smoke del dashboard (vitest + jsdom)
 ```
 
