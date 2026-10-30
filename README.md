@@ -542,16 +542,28 @@ horas o días sin que nadie se entere.
 **La forma simple, sin permisos de administrador:** un acceso directo a `ecowatt-api.cmd` en la
 carpeta de Inicio. `Win + R` → `shell:startup` → pegar ahí el acceso directo.
 
-**La alternativa, con consola elevada:**
+**La alternativa, con consola elevada.** Las comillas internas `\"` no son decorativas: la
+ruta del repo tiene un espacio, y sin ellas `schtasks` la parte en dos y guarda una tarea rota
+—`<Command>C:\Users\Fede\Desktop\EcoWatt</Command>` con `Home\ecowatt-api.cmd` de argumento—
+que falla al iniciar sesión sin avisar.
 
 ```
-schtasks /Create /TN "EcoWatt API" /TR "%CD%\ecowatt-api.cmd" /SC ONLOGON /F
+schtasks /Create /TN "EcoWatt API" /TR "\"C:\Users\Fede\Desktop\EcoWatt Home\ecowatt-api.cmd\"" /SC ONLOGON /F
 ```
+
+Tampoco sirve `%CD%`: se expande sin comillas y el problema vuelve. Hay que escribir la ruta
+completa.
 
 `schtasks /Create` con `/SC ONLOGON` **falla con "Acceso denegado"** en una consola normal: hay
 que abrir el Símbolo del sistema como administrador. La única ventaja sobre la carpeta de Inicio
 es que el Programador puede arrancar la tarea sin que nadie inicie sesión, cosa que no hace
 falta si la máquina queda logueada.
+
+Para ver cómo quedó guardada de verdad, no alcanza con `/Query` a secas:
+
+```
+schtasks /Query /TN "EcoWatt API" /XML ONE
+```
 
 Para verificar que quedó: `schtasks /Query /TN "EcoWatt API"`.
 
