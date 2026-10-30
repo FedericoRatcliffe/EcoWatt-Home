@@ -428,11 +428,16 @@ Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerDelta 0; PowerO
 - **`TelePeriod`** — cada cuántos segundos publica la telemetría. Viene de fábrica en **300**
   (5 minutos), demasiado espaciado para ver un electrodoméstico prenderse.
 
-> **`PowerDelta` viene en 101 y hay que apagarlo.** Es el default de Athom y significa
-> "publicar ante un cambio de 1 W" (en Tasmota, 101‑200 es un umbral absoluto de valor − 100).
-> Una zapatilla que oscila entre 39 y 40 W publica **una vez por segundo**, lo que anula el
-> `TelePeriod` por completo: 86.400 lecturas por día en vez de 2.880, treinta veces lo
-> presupuestado más abajo. Con `PowerDelta 0` sólo manda lo que marca `TelePeriod`.
+> **`PowerDelta` viene prendido y hay que apagarlo.** Los cinco equipos de casa llegaron en
+> **110**, que en Tasmota significa "publicar ante un cambio de 10 W" (101‑32000 es un umbral
+> absoluto de valor − 100). Con una carga estable no se nota, porque nunca salta 10 W de golpe y
+> el equipo sigue mandando cada 30 s. Pero una zapatilla con una PC, que oscila entre 73 y 116 W,
+> lo cruza todo el tiempo y publica **cada 1 o 2 segundos**, lo que anula el `TelePeriod` y
+> multiplica las filas. Con `PowerDelta 0` sólo manda lo que marca `TelePeriod`.
+>
+> Verificalo después con `PowerDelta1`, que devuelve el valor actual: en los equipos de casa,
+> 0 en la línea del `Backlog` no siempre quedó aplicado. El EM2 tiene un umbral por canal, así que
+> ahí hay que mirar y apagar también `PowerDelta2`.
 >
 > No se pierde precisión: los kWh salen del contador acumulado `ENERGY.Total`, no de integrar
 > las muestras. Lo único que cambia es cada cuánto se refresca el "consumo ahora" del dashboard.
