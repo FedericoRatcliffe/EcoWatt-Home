@@ -134,6 +134,8 @@ normal.
 
 ## Pendientes
 
+El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan-de-mediciones.md).
+
 - [ ] Separar el standby de la Zapatilla Andy 1 (49 W fijos de noche): cuanto es el DVR,
   que tiene que quedar prendido, y cuanto el resto (impresora, cargador, tele, home theater).
 - [x] Relevar que hay enchufado en la zapatilla de Andy 1 (30/10).
