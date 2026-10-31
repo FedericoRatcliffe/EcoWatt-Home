@@ -132,6 +132,55 @@ normal.
 - **Idea:** que la PC se suspenda sola tras un rato sin uso ahorraria esos ~13 W en cada
   ausencia, salvo cuando tenga que quedar prendida para la API.
 
+## 31/10/2026 - Segunda noche base
+
+**Condiciones:** foto en vivo a las 03:30 con la PC y la tele de la Zapatilla Fede en uso
+(casa ~216 W). A las ~03:30 se apago la tele de la PC y Fede se fue a la habitacion: la PC
+quedo prendida y en la Zapatilla Fede Habitacion se uso la tele con el cargador de la
+notebook. Datos hasta las 10:22, sin huecos (855 lecturas por equipo).
+
+**La noche entera, de 03:30 a 09:15 (5,75 h, 690 lecturas por equipo):**
+
+| Equipo | Promedio | Rango | Energia |
+|---|---|---|---|
+| **Casa entera** | **154 W** | 103-270 W | **0,890 kWh** |
+| Zapatilla Andy 1 | 46 W | 43-50 W | 0,267 kWh |
+| Zapatilla Fede (la PC) | 36 W | 29-97 W | 0,208 kWh |
+| Zapatilla Fede Habitacion | 13 W | 0-76 W | 0,073 kWh |
+| Zapatilla Paula | 7 W | 6-10 W | 0,041 kWh |
+| No identificado (heladera, router, T8V) | 52 W | | ~0,30 kWh |
+
+**Solo el standby, de 05:00 a 09:15** (ya sin la tele ni el cargador de la habitacion):
+
+| Equipo | Consumo | Contra el 30/10 |
+|---|---|---|
+| **Casa entera** | **~136 W** (minimo 103) | 148 W |
+| Zapatilla Andy 1 | 49 W hasta las 06:00, despues 44 W | 49 W |
+| Zapatilla Fede (la PC) | 32-33 W | 32 W |
+| Zapatilla Paula | 7 W | 7 W |
+| Zapatilla Fede Habitacion | 1 W | 2 W |
+| No identificado (heladera, router, T8V) | ~49 W, entre 25 y 67 | ~58 W |
+
+**Hallazgos:**
+
+- **La base se repite: ~136 W, unos 98 kWh por mes (~$34.600) sin usar nada.** La PC
+  vuelve a los mismos 32 W y Paula a los mismos 7 W: las dos noches son comparables.
+- **La noche entera, con la tele de la habitacion, fueron 0,89 kWh (~$315).** De eso la
+  habitacion se llevo 0,073 kWh (~$26): la tele y el cargador casi no pesan.
+- **La PC tarda en llegar al reposo profundo.** Apagada la tele, quedo en ~44 W (espera con
+  la pantalla apagada) y recien a las 04:30 bajo a 30-33 W.
+- **Zapatilla Andy 1 bajo de 49 a 44 W cerca de las 06:00 y se quedo ahi.** Algo de la
+  zapatilla dejo de consumir 5 W sin que nadie la usara: lo mas probable es el cargador de la
+  notebook terminando de cargar, o la impresora entrando en un reposo mas profundo. Lo va a
+  aclarar el experimento por pasos.
+- **Zapatilla Fede Habitacion: ~55-60 W de 03:30 a 04:30, bajando hasta ~5 W a las 05:00** y
+  despues 1 W: la tele mas el cargador de la notebook, que fue bajando a medida que la
+  notebook se llenaba. Igual que la noche del 30/10.
+- **El no identificado oscila entre 25 y 67 W en ciclos:** es la heladera prendiendo y
+  apagando el compresor sobre una base de ~25-30 W (router y demas).
+- **09:30, pico de 1,37 kW fuera de los enchufes**, unos minutos: el desayuno (pava o
+  microondas). Normal. Al mismo tiempo Andy 1 subio a ~89 W un rato: alguien la uso.
+
 ## Pendientes
 
 El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan-de-mediciones.md).
