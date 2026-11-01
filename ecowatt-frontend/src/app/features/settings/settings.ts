@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
+  BillCheck,
   BillGoal,
   BillImportResult,
   Device,
@@ -65,6 +66,7 @@ export class Settings {
   protected readonly tariff = signal<TariffSchedule | null>(null);
   protected readonly tariffHistory = signal<TariffSchedule[]>([]);
   protected readonly bills = signal<ImportedBill[]>([]);
+  protected readonly billChecks = signal<Record<string, BillCheck>>({});
   protected readonly devices = signal<Device[]>([]);
 
   protected readonly loading = signal(true);
@@ -426,7 +428,31 @@ export class Settings {
     });
     this.api.getTariffHistory().subscribe({ next: (h) => this.tariffHistory.set(h) });
     this.api.getBills().subscribe({ next: (b) => this.bills.set(b) });
+    // Informativo: si falla, la tabla de facturas se ve igual, sin la columna de control.
+    this.api.getBillChecks().subscribe({
+      next: (checks) => this.billChecks.set(Object.fromEntries(checks.map((c) => [c.billId, c]))),
+      error: () => this.billChecks.set({}),
+    });
     this.api.getDevices().subscribe({ next: (d) => this.devices.set(d) });
+  }
+
+  /**
+   * La factura contra lo que midio el tablero, en palabras. Un periodo medido a medias no
+   * juzga al medidor: el faltante es del hueco, no del EM2.
+   */
+  protected checkText(c: BillCheck | undefined): { text: string; kind: string } {
+    if (!c || c.status === 'NoData') return { text: 'sin medicion', kind: 'none' };
+
+    const diff = c.differencePercent === null ? '' : `${c.differencePercent > 0 ? '+' : ''}${percent(c.differencePercent, 1)}`;
+
+    switch (c.status) {
+      case 'Partial':
+        return { text: `medido ${percent(c.coveragePercent, 0)} del periodo`, kind: 'none' };
+      case 'Match':
+        return { text: `coincide (${diff})`, kind: 'ok' };
+      default:
+        return { text: `no coincide (${diff})`, kind: 'bad' };
+    }
   }
 
   private describe(err: unknown): string {

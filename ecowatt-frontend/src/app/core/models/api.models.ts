@@ -224,6 +224,18 @@ export interface DailyDashboard {
   house: HouseSplit;
 }
 
+/** Consumo de la casa en un mes calendario. */
+export interface MonthlyPoint {
+  year: number;
+  month: number;
+  label: string;
+  kwh: number;
+  /** Factura del mes reconstruida. En el mes en curso los cargos fijos ya van enteros. */
+  cost: number;
+  isCurrent: boolean;
+  measuredDays: number;
+}
+
 export interface PeriodDashboard {
   label: string;
   from: string;
@@ -335,4 +347,94 @@ export interface BillImportResult {
   recalculatedTotal: number;
   differenceVsPrinted: number;
   warnings: string[];
+}
+
+// ---------- Analisis ----------
+
+/** El consumo base de un enchufe, o del resto de la casa. */
+export interface BaseLoadDevice {
+  deviceId: string;
+  name: string;
+  /** Piso tipico: mediana de las noches medidas. */
+  watts: number;
+  monthlyKwh: number;
+  /** Lo que cuesta ese piso en un ciclo, al precio del kWh extra. */
+  monthlyCost: number;
+  lastNightWatts: number | null;
+  typicalWatts: number | null;
+  isUnidentified: boolean;
+}
+
+/** Lo que gasta la casa sin que nadie use nada: la hora mas baja de cada madrugada. */
+export interface BaseLoad {
+  nights: number;
+  windowStartHour: number;
+  windowEndHour: number;
+  houseWatts: number | null;
+  lastNightWatts: number | null;
+  typicalWatts: number | null;
+  monthlyKwh: number;
+  monthlyCost: number;
+  marginalPricePerKwh: number;
+  /** Que parte del consumo del ciclo es base. */
+  sharePercent: number | null;
+  devices: BaseLoadDevice[];
+  history: { night: string; houseWatts: number | null }[];
+}
+
+/** Positivo = se deja de consumir; negativo = se suma. Igual fromHour y toHour = todo el dia. */
+export interface SimulationRequest {
+  watts: number;
+  fromHour: number;
+  toHour: number;
+  baselineKwh?: number | null;
+}
+
+export interface Simulation {
+  cycleLabel: string;
+  baselineSource: string;
+  hoursPerDay: number;
+  baselineKwh: number;
+  scenarioKwh: number;
+  deltaKwh: number;
+  baselineTotal: number;
+  scenarioTotal: number;
+  /** Lo que baja la factura. Negativo si sube. */
+  saving: number;
+  yearlySaving: number;
+  baselineMarginalPrice: number;
+  scenarioMarginalPrice: number;
+}
+
+export type BillCheckStatus = 'NoData' | 'Partial' | 'Match' | 'Mismatch';
+
+/** Una factura importada contra lo que midio el tablero. */
+export interface BillCheck {
+  billId: string;
+  period: string;
+  readingFrom: string;
+  readingTo: string;
+  billedKwh: number;
+  measuredKwh: number;
+  coveragePercent: number;
+  differencePercent: number | null;
+  status: BillCheckStatus;
+}
+
+/** 0 = lunes ... 6 = domingo. */
+export interface ProfileCell {
+  day: number;
+  hour: number;
+  avgWatts: number;
+  samples: number;
+}
+
+export interface WeeklyProfile {
+  from: string;
+  to: string;
+  cells: ProfileCell[];
+  /** kWh de un dia tipico, de lunes a domingo. null si al dia le faltan horas. */
+  dayKwh: (number | null)[];
+  weekdayKwh: number | null;
+  weekendKwh: number | null;
 }

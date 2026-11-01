@@ -8,18 +8,23 @@ import {
   DailyDashboard,
   DeviceConsumption,
   GoalProgress,
+  MonthlyPoint,
   PeriodDashboard,
 } from '../../core/models/api.models';
 import { EcowattApi } from '../../core/services/ecowatt-api';
 import { Realtime } from '../../core/services/realtime';
 import { Chart } from '../../shared/chart';
 import { ChartThemeWatcher } from '../../shared/chart-theme';
+import { BaseLoadCard } from './base-load-card/base-load-card';
+import { SimulationPreset, SimulatorCard } from './simulator-card/simulator-card';
+import { WeeklyProfileCard } from './weekly-profile-card/weekly-profile-card';
 import {
   dayLabel,
   hourLabel,
   kwh,
   money,
   moneySmart,
+  monthName,
   percent,
   todayIso,
   watts,
@@ -31,7 +36,7 @@ const REFRESH_MS = 60_000;
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, Chart],
+  imports: [FormsModule, RouterLink, Chart, BaseLoadCard, SimulatorCard, WeeklyProfileCard],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
@@ -58,6 +63,7 @@ export class Dashboard {
 
   protected readonly daily = signal<DailyDashboard | null>(null);
   protected readonly period = signal<PeriodDashboard | null>(null);
+  protected readonly monthly = signal<MonthlyPoint[]>([]);
   protected readonly cycleInfo = signal<CycleInfo | null>(null);
   protected readonly alerts = signal<Alert[]>([]);
 
@@ -68,7 +74,11 @@ export class Dashboard {
   protected readonly showDeviceTable = signal(false);
   protected readonly showHourlyTable = signal(false);
   protected readonly showDailyTable = signal(false);
+  protected readonly showMonthlyTable = signal(false);
   protected readonly showBillDetail = signal(false);
+
+  /** Lo que el consumo base le pide simular al simulador. */
+  protected readonly simulatorPreset = signal<SimulationPreset | null>(null);
 
   protected readonly house = computed(() => this.period()?.house ?? null);
 
@@ -342,6 +352,75 @@ export class Dashboard {
     };
   });
 
+  /**
+   * Consumo de la casa por mes calendario. El mes en curso va en el tono claro: todavia no
+   * termino, y compararlo de igual a igual con uno cerrado siempre lo hace ver mas bajo.
+   */
+  protected readonly monthlyOption = computed<EChartsCoreOption>(() => {
+    const t = this.themeWatcher.theme();
+    const points = this.monthly();
+
+    return {
+      textStyle: { fontFamily: t.font },
+      grid: { left: 4, right: 16, top: 30, bottom: 4, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow', shadowStyle: { color: t.series1Soft } },
+        backgroundColor: t.surface,
+        borderColor: t.baseline,
+        borderWidth: 1,
+        borderRadius: 10,
+        extraCssText: 'box-shadow: 0 6px 20px rgba(0, 40, 80, 0.12);',
+        textStyle: { color: t.textPrimary, fontSize: 12, fontFamily: t.font },
+        formatter: (params: Array<{ dataIndex: number }>) => {
+          const p = points[params[0]?.dataIndex ?? 0];
+          if (!p) return '';
+          return `<b>${p.label}</b><br/>${kwh(p.kwh)} &middot; factura ${money(p.cost)}<br/>${monthDetail(p)}`;
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: points.map(monthAxisLabel),
+        axisLine: { lineStyle: { color: t.baseline, width: 1 } },
+        axisTick: { show: false },
+        axisLabel: { color: t.muted, fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'kWh',
+        nameGap: 12,
+        nameTextStyle: { color: t.muted, fontSize: 11, align: 'left' },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: t.muted, fontSize: 11 },
+        splitLine: { lineStyle: { color: t.grid, width: 1, type: 'solid' } },
+      },
+      series: [
+        {
+          type: 'bar',
+          data: points.map((p) => ({
+            value: p.kwh,
+            itemStyle: p.isCurrent
+              ? { color: t.series1Soft, borderColor: t.series1, borderWidth: 1, borderRadius: [4, 4, 0, 0] }
+              : { color: t.series1, borderRadius: [4, 4, 0, 0] },
+          })),
+          barMaxWidth: 40,
+          barCategoryGap: '35%',
+          label: {
+            show: true,
+            position: 'top',
+            distance: 6,
+            color: t.textSecondary,
+            fontSize: 11,
+            formatter: (p: { value: number }) => kwh(p.value),
+          },
+        },
+      ],
+    };
+  });
+
+  protected readonly monthDetail = monthDetail;
+
   constructor() {
     // Dato informativo: si falla, el dashboard igual sirve, solo no muestra el pie de ciclo.
     this.api.getCycleInfo().subscribe({
@@ -400,6 +479,12 @@ export class Dashboard {
       error: () => this.alerts.set([]),
     });
 
+    // Tampoco bloquea: es historia, y el resto del dashboard sirve sin ella.
+    this.api.getMonthly().subscribe({
+      next: (m) => this.monthly.set(m),
+      error: () => this.monthly.set([]),
+    });
+
     this.api.getDaily(this.date()).subscribe({
       next: (d) => {
         this.daily.set(d);
@@ -436,7 +521,18 @@ export class Dashboard {
   }
 }
 
-type GoalKind = 'ok' | 'risk' | 'over' | 'impossible';
+/** "oct 26": corto para que entren doce meses en el eje. */
+function monthAxisLabel(p: MonthlyPoint): string {
+  return `${monthName(p.month).slice(0, 3)} ${String(p.year).slice(-2)}`;
+}
+
+/** Por que un mes puede verse bajo: porque no termino o porque no se midio entero. */
+function monthDetail(p: MonthlyPoint): string {
+  const days = p.measuredDays === 1 ? '1 dia medido' : `${p.measuredDays} dias medidos`;
+  return p.isCurrent ? `mes en curso, ${days}` : days;
+}
+
+type GoalKind ='ok' | 'risk' | 'over' | 'impossible';
 
 /** Etiqueta, consejo y avance del objetivo. La etiqueta siempre acompana al color. */
 function describeGoal(g: GoalProgress): { kind: GoalKind; label: string; advice: string; usedPercent: number } {

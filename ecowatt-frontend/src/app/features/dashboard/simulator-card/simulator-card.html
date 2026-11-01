@@ -1,0 +1,88 @@
+<div class="card">
+  <div class="card-head">
+    <div>
+      <h2>Cuanto ahorro si...</h2>
+      <span class="sub">la factura del ciclo recalculada con tramos</span>
+    </div>
+  </div>
+
+  <div class="shortcuts">
+    @for (s of shortcuts; track s.label) {
+      <button class="btn" type="button" (click)="apply(s)">{{ s.label }}</button>
+    }
+  </div>
+
+  <div class="form">
+    <span class="segmented">
+      <button class="btn" type="button" [class.active]="cut()" (click)="edit(() => cut.set(true))">
+        Dejo de consumir
+      </button>
+      <button class="btn" type="button" [class.active]="!cut()" (click)="edit(() => cut.set(false))">
+        Sumo
+      </button>
+    </span>
+
+    <div class="row">
+      <label class="field">
+        Watts
+        <input
+          type="number"
+          min="1"
+          max="20000"
+          [value]="watts()"
+          (input)="edit(() => watts.set($any($event.target).valueAsNumber))"
+        />
+      </label>
+      <label class="field">
+        Desde
+        <select [value]="fromHour()" (change)="edit(() => fromHour.set(+$any($event.target).value))">
+          @for (h of hours; track h) {
+            <option [value]="h" [selected]="h === fromHour()">{{ hourText(h) }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        Hasta
+        <select [value]="toHour()" (change)="edit(() => toHour.set(+$any($event.target).value))">
+          @for (h of hours; track h) {
+            <option [value]="h" [selected]="h === toHour()">{{ hourText(h) }}</option>
+          }
+        </select>
+      </label>
+      <button class="btn primary" type="button" (click)="run()" [disabled]="running()">Calcular</button>
+    </div>
+    <span class="muted hint">
+      {{ hoursPerDay() === 24 ? 'Todo el dia' : hoursPerDay() + ' h por dia' }}, todos los dias del ciclo
+    </span>
+  </div>
+
+  @if (error()) {
+    <p class="warn">{{ error() }}</p>
+  }
+
+  @if (result(); as r) {
+    @if (summary(); as s) {
+      <div class="result" [class.up]="!s.saves">
+        @if (label()) {
+          <div class="stat-label">{{ label() }}</div>
+        }
+        <div class="saving">
+          {{ s.saves ? 'Ahorras' : 'Sube' }} <strong>{{ s.amount }}</strong> por ciclo
+          <span class="muted">&middot; ~{{ s.yearly }} en 12 meses</span>
+        </div>
+        <div class="stat-sub">
+          Factura {{ money(r.baselineTotal) }} &rarr; {{ money(r.scenarioTotal) }} &middot;
+          {{ kwh(r.baselineKwh) }} &rarr; {{ kwh(r.scenarioKwh) }}
+        </div>
+        @if (s.tierChange) {
+          <div class="stat-sub">{{ s.tierChange }}</div>
+        }
+        <p class="muted footnote">Sobre {{ r.baselineSource }} ({{ r.cycleLabel }}), con la tarifa de hoy.</p>
+      </div>
+    }
+  } @else {
+    <p class="muted footnote">
+      Elegi un atajo, un enchufe del consumo base, o arma el tuyo: cuantos watts y en que horario.
+    </p>
+  }
+</div>

@@ -142,6 +142,22 @@ public sealed record DailyDashboardDto(
     IReadOnlyList<HistoryPointDto> Hourly,
     HouseSplitDto House);
 
+/// <summary>Consumo de la casa en un mes calendario.</summary>
+/// <param name="Cost">
+/// La factura del mes reconstruida, cargos fijos incluidos. Con el mes en curso los cargos
+/// fijos ya estan enteros y los kWh no, asi que no es comparable con un mes cerrado.
+/// </param>
+/// <param name="IsCurrent">true para el mes que todavia no termino.</param>
+/// <param name="MeasuredDays">Dias del mes con alguna lectura de la casa.</param>
+public sealed record MonthlyPointDto(
+    int Year,
+    int Month,
+    string Label,
+    double Kwh,
+    decimal Cost,
+    bool IsCurrent,
+    int MeasuredDays);
+
 /// <summary>
 /// Dashboard del periodo facturable: la factura completa, el desglose por dispositivo y la
 /// curva diaria. <paramref name="IsBillingCycle"/> distingue el ciclo real del mes calendario.

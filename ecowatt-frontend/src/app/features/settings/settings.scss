@@ -165,3 +165,23 @@ td.actions {
     flex-shrink: 0;
   }
 }
+
+// Factura contra lo medido. El color acompana a la palabra, nunca informa solo.
+.check {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.ok {
+    color: $green-700;
+  }
+
+  &.bad {
+    color: $red-700;
+  }
+
+  &.none {
+    color: $text-faint;
+    font-weight: 500;
+  }
+}

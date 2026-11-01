@@ -118,11 +118,16 @@ Dos cosas que **no** se copiaron, a propósito:
 | GET | `/api/dashboard/daily?date=` | Consumo y costo del día por dispositivo + curva horaria |
 | GET | `/api/dashboard/period?cycle=&offset=` | La factura del período reconstruida, con desglose por dispositivo |
 | GET | `/api/dashboard/cycle` | Dónde está anclado el ciclo y de qué dato salió |
+| GET | `/api/dashboard/monthly?months=12` | Consumo y factura de la casa por mes calendario (sólo meses con lecturas) |
+| GET | `/api/insights/base-load?nights=14` | Consumo base: la hora más baja de cada madrugada (00 a 08 h), mediana de las noches, por enchufe y del resto de la casa |
+| POST | `/api/insights/simulate` | `{ "watts": 49, "fromHour": 0, "toHour": 0 }` → la factura del ciclo con y sin ese consumo. Watts negativos = sumar un aparato |
+| GET | `/api/insights/bill-checks` | Cada factura importada contra lo que midió el tablero en sus fechas |
+| GET | `/api/insights/weekly-profile?weeks=4` | Semana típica: potencia media por día y hora, días hábiles contra fin de semana |
 | GET | `/api/tariff` · `/api/tariff/history` | Cuadro tarifario vigente / serie completa |
 | PUT | `/api/tariff` | Carga un cuadro nuevo con su vigencia |
 | POST | `/api/tariff/import` | Sube el PDF de la factura y carga tarifas + comprobante |
 | GET | `/api/tariff/bills` | Facturas reales ya importadas |
-| GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta, objetivo de factura |
+| GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta, objetivo de factura, suba del consumo base |
 | GET | `/api/goal` | Objetivo de factura por ciclo, los kWh que permite y lo que sale la factura sin consumir nada |
 | PUT · DELETE | `/api/goal` | `{ "amount": 60000 }` fija el objetivo; `DELETE` lo quita |
 | — | `/hubs/energy` | Hub SignalR: eventos `readingReceived`, `deviceRegistered`, `relayStateChanged` |
@@ -737,7 +742,34 @@ Para regenerar un fixture si cambia el formato del PDF, extraé el texto con
 | `Alerts:Enabled` | `true` | Cálculo de alertas |
 | `Alerts:SilenceMinutes` | `10` | Minutos sin reportar para considerar mudo un dispositivo |
 | `Alerts:OverrunRatio` | `0.15` | Cuánto debe superar la proyección al ciclo anterior para avisar |
+| `Alerts:BaseLoadRiseWatts` / `BaseLoadRiseRatio` | `20` / `0.15` | Cuánto tiene que subir el consumo base de anoche sobre lo normal para avisar (manda el mayor de los dos) |
+| `Notifications:TelegramBotToken` | vacío | Token del bot de Telegram. **No va en el json versionado**: variable de entorno `Notifications__TelegramBotToken` |
+| `Notifications:TelegramChatId` | vacío | A quién se manda. Sin token y chat, los avisos quedan apagados |
+| `Notifications:IntervalMinutes` | `5` | Cada cuánto se revisan las alertas para avisar |
+| `Notifications:MinimumSeverity` | `Warning` | Desde qué gravedad se avisa; `Info` se queda en el dashboard |
 | `Cors:AllowedOrigins` | `http://localhost:4200` | Origen del frontend |
+
+### Avisos por Telegram
+
+Las alertas se calculan al pedirlas, así que sin esto sólo se ven con el dashboard abierto.
+Con un bot configurado, la API las revisa cada 5 minutos y manda las nuevas (una vez cada
+una) y avisa cuando se resuelven.
+
+1. En Telegram, hablale a **@BotFather**, `/newbot`, y guardá el token que te da.
+2. Mandale cualquier mensaje a tu bot y abrí
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`: el `chat.id` que aparece es tu chat.
+   Para avisarle a toda la casa, agregá el bot a un grupo y usá el id del grupo (negativo).
+3. Pasá las dos cosas por variable de entorno, nunca en `appsettings.json`:
+
+```powershell
+$env:Notifications__TelegramBotToken = "123456:ABC..."
+$env:Notifications__TelegramChatId = "987654321"
+dotnet run --project EcoWattCasa.API
+```
+
+Lo ya avisado vive en memoria: si se reinicia la API, las alertas que sigan activas se
+mandan una vez más. Y como la API corre en la PC de la Zapatilla Fede, si esa PC se apaga
+no hay quién avise.
 
 ---
 

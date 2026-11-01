@@ -159,6 +159,47 @@ public sealed class DashboardService(
             goal);
     }
 
+    /// <summary>
+    /// Consumo de la casa por mes calendario, de los ultimos <paramref name="months"/> meses.
+    /// Los meses sin ninguna lectura no se devuelven: un cero ahi diria "no consumio nada"
+    /// cuando en realidad no se midio.
+    ///
+    /// El costo de cada mes es su factura reconstruida, igual que el modo "Mes calendario" del
+    /// dashboard: los tramos se aplican sobre el mes entero, asi que no sale de sumar dias.
+    /// </summary>
+    public async Task<IReadOnlyList<MonthlyPointDto>> GetMonthlyAsync(int months, CancellationToken ct = default)
+    {
+        var today = tz.Today;
+        var first = new DateOnly(today.Year, today.Month, 1).AddMonths(-(months - 1));
+        var span = new PeriodWindow(first, new DateOnly(today.Year, today.Month, 1).AddMonths(1), "", false);
+
+        var allDevices = await devices.GetAllAsync(ct);
+        var history = await tariffs.GetHistoryAsync(ct);
+        var (fromUtc, toUtc) = cycles.ToUtc(span);
+        var hourly = await readings.GetHourlySamplesAsync(fromUtc, toUtc, ct);
+        var days = FoldBuckets(hourly, allDevices, tz.Zone, BucketGranularity.Day, null);
+
+        return days
+            .GroupBy(d => (d.BucketLocal.Year, d.BucketLocal.Month))
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var window = cycles.CalendarMonth(g.Key.Year, g.Key.Month);
+                var kwh = g.Sum(d => d.Kwh);
+                var bill = BillCalculator.Build(window.From, window.To, kwh, history);
+
+                return new MonthlyPointDto(
+                    g.Key.Year,
+                    g.Key.Month,
+                    window.Label,
+                    Math.Round(kwh, 4),
+                    bill.Total,
+                    window.Contains(today),
+                    g.Count());
+            })
+            .ToList();
+    }
+
     public async Task<DeviceHistoryDto?> GetDeviceHistoryAsync(
         Guid deviceId,
         DateTimeOffset fromUtc,
@@ -194,6 +235,27 @@ public sealed class DashboardService(
             Math.Round(priced.Sum(p => p.Cost), 2),
             priced);
     }
+
+    /// <summary>kWh de la casa en una ventana y cuantas horas de ella tienen lectura.</summary>
+    public async Task<(double Kwh, int MeasuredHours)> GetHouseKwhAsync(PeriodWindow window, CancellationToken ct = default)
+    {
+        var allDevices = await devices.GetAllAsync(ct);
+        var (points, measuredHours) = await BuildDailyAsync(window, allDevices, new Dictionary<Guid, DeviceTotals>(), ct);
+        return (points.Sum(p => p.Kwh), measuredHours);
+    }
+
+    /// <summary>Consumo de la casa hora por hora, en hora local y sin costear.</summary>
+    public async Task<IReadOnlyList<HistoryPointDto>> GetHouseHourlyAsync(
+        DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default)
+    {
+        var allDevices = await devices.GetAllAsync(ct);
+        var hourly = await readings.GetHourlySamplesAsync(fromUtc, toUtc, ct);
+        return FoldBuckets(hourly, allDevices, tz.Zone, BucketGranularity.Hour, null);
+    }
+
+    /// <summary>Precio del proximo kWh en el ciclo en curso.</summary>
+    public async Task<decimal> GetMarginalPriceAsync(CancellationToken ct = default)
+        => await CurrentMarginalPriceAsync(await tariffs.GetHistoryAsync(ct), ct);
 
     // ---------- helpers ----------
 

@@ -9,13 +9,14 @@ import {
   input,
   viewChild,
 } from '@angular/core';
-import { BarChart, LineChart } from 'echarts/charts';
+import { BarChart, HeatmapChart, LineChart } from 'echarts/charts';
 import {
   DataZoomComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -23,12 +24,14 @@ import { CanvasRenderer } from 'echarts/renderers';
 // Import modular: solo lo que se usa, para no meter el echarts entero en el bundle.
 echarts.use([
   BarChart,
+  HeatmapChart,
   LineChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
   DataZoomComponent,
   MarkLineComponent,
+  VisualMapComponent,
   CanvasRenderer,
 ]);
 

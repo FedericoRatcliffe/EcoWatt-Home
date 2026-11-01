@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<BillImportService>();
         services.AddScoped<AlertService>();
         services.AddScoped<GoalService>();
+        services.AddScoped<InsightsService>();
 
         if (configuration is not null)
             services.Configure<AlertThresholds>(configuration.GetSection(AlertThresholds.SectionName));

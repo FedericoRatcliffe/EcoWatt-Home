@@ -42,7 +42,8 @@ public class AlertRulesTests
         int elapsedDays = 15,
         bool withTariff = true,
         IReadOnlyList<DeviceStatus>? devices = null,
-        GoalProgress? goal = null)
+        GoalProgress? goal = null,
+        BaseLoadShift? baseLoad = null)
         => new(
             Cycle(),
             elapsedDays,
@@ -52,7 +53,8 @@ public class AlertRulesTests
             previousCost,
             withTariff ? Tariff : null,
             devices ?? [Reporting("PC"), Reporting("Heladera")],
-            goal);
+            goal,
+            baseLoad);
 
     /// <summary>El objetivo evaluado sobre el mismo ciclo y la misma tarifa que el contexto.</summary>
     private static GoalProgress Goal(decimal amount, int elapsedDays, double consumedKwh, decimal projectedCost)
@@ -382,5 +384,40 @@ public class AlertRulesTests
 
         Assert.Null(Find(AlertRules.Evaluate(context, off, Now), "device-silent"));
         Assert.NotNull(Find(AlertRules.Evaluate(context, strict, Now), "device-silent"));
+    }
+
+    // ---------- Consumo base ----------
+
+    [Fact]
+    public void Avisa_cuando_la_base_de_anoche_subio_y_nombra_al_enchufe()
+    {
+        var shift = new BaseLoadShift(210, 148, 503.16m, "Zapatilla Andy 1", 46);
+
+        var alert = Find(Evaluate(Context(baseLoad: shift)), "base-load-up");
+
+        Assert.NotNull(alert);
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Contains("148 W", alert.Detail);
+        Assert.Contains("Zapatilla Andy 1 (+46 W)", alert.Detail);
+    }
+
+    [Fact]
+    public void Una_variacion_chica_de_la_base_no_es_alerta()
+    {
+        // 12 W de diferencia es la heladera ciclando distinto, no algo que quedo prendido.
+        var shift = new BaseLoadShift(160, 148, 503.16m, "Zapatilla Andy 1", 12);
+
+        Assert.Null(Find(Evaluate(Context(baseLoad: shift)), "base-load-up"));
+    }
+
+    [Fact]
+    public void Si_no_subio_ningun_enchufe_lo_dice()
+    {
+        var shift = new BaseLoadShift(220, 148, 503.16m);
+
+        var alert = Find(Evaluate(Context(baseLoad: shift)), "base-load-up");
+
+        Assert.NotNull(alert);
+        Assert.Contains("resto de la casa", alert.Detail);
     }
 }

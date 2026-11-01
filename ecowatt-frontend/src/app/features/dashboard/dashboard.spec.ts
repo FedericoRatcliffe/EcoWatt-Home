@@ -126,6 +126,11 @@ const period = {
   },
 };
 
+const monthly = [
+  { year: 2026, month: 9, label: 'septiembre 2026', kwh: 175, cost: 78995.13, isCurrent: false, measuredDays: 30 },
+  { year: 2026, month: 10, label: 'octubre 2026', kwh: 80, cost: 40210.5, isCurrent: true, measuredDays: 13 },
+];
+
 /**
  * Intl separa el simbolo de moneda con espacio duro (U+00A0) y a veces fino (U+202F).
  * Se normalizan para poder afirmar sobre el texto con espacios comunes.
@@ -143,11 +148,13 @@ function showTablesInsteadOfCharts(fixture: { componentInstance: unknown }): voi
     showDeviceTable: { set(v: boolean): void };
     showHourlyTable: { set(v: boolean): void };
     showDailyTable: { set(v: boolean): void };
+    showMonthlyTable: { set(v: boolean): void };
   };
 
   component.showDeviceTable.set(true);
   component.showHourlyTable.set(true);
   component.showDailyTable.set(true);
+  component.showMonthlyTable.set(true);
 }
 
 describe('Dashboard', () => {
@@ -176,6 +183,7 @@ describe('Dashboard', () => {
     });
     http.expectOne((r) => r.url === '/api/dashboard/daily').flush(daily);
     http.expectOne((r) => r.url === '/api/dashboard/period').flush(period);
+    http.expectOne((r) => r.url === '/api/dashboard/monthly').flush(monthly);
     http.expectOne((r) => r.url === '/api/alerts').flush([
       {
         code: 'block-crossing',
@@ -186,6 +194,22 @@ describe('Dashboard', () => {
       },
     ]);
   }
+
+  it('muestra el consumo por mes y marca el que no termino', async () => {
+    const fixture = TestBed.createComponent(Dashboard);
+    flushAll();
+    showTablesInsteadOfCharts(fixture);
+    await fixture.whenStable();
+
+    const text = visibleText(fixture.nativeElement as HTMLElement);
+
+    expect(text).toContain('Consumo de la casa por mes');
+    expect(text).toContain('septiembre 2026');
+    expect(text).toContain('175,00 kWh');
+    expect(text).toContain('30 dias medidos');
+    // Un mes a medias se ve bajo: hay que decir por que.
+    expect(text).toContain('mes en curso, 13 dias medidos');
+  });
 
   it('muestra la factura del ciclo, su desglose y las cards por dispositivo', async () => {
     const fixture = TestBed.createComponent(Dashboard);

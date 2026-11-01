@@ -3,6 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   Alert,
+  BaseLoad,
+  BillCheck,
   BillGoal,
   BillImportResult,
   CycleInfo,
@@ -13,10 +15,14 @@ import {
   EnergyReading,
   HistoryPurge,
   ImportedBill,
+  MonthlyPoint,
   PeriodDashboard,
   RelayCommand,
+  Simulation,
+  SimulationRequest,
   TariffInput,
   TariffSchedule,
+  WeeklyProfile,
 } from '../models/api.models';
 
 /**
@@ -100,6 +106,30 @@ export class EcowattApi {
     if (year) params = params.set('year', year);
     if (month) params = params.set('month', month);
     return this.http.get<PeriodDashboard>('/api/dashboard/period', { params });
+  }
+
+  /** Consumo de la casa por mes calendario. Solo vienen los meses con alguna lectura. */
+  getMonthly(months = 12): Observable<MonthlyPoint[]> {
+    const params = new HttpParams().set('months', months);
+    return this.http.get<MonthlyPoint[]>('/api/dashboard/monthly', { params });
+  }
+
+  getBaseLoad(nights = 14): Observable<BaseLoad> {
+    const params = new HttpParams().set('nights', nights);
+    return this.http.get<BaseLoad>('/api/insights/base-load', { params });
+  }
+
+  simulate(request: SimulationRequest): Observable<Simulation> {
+    return this.http.post<Simulation>('/api/insights/simulate', request);
+  }
+
+  getBillChecks(): Observable<BillCheck[]> {
+    return this.http.get<BillCheck[]>('/api/insights/bill-checks');
+  }
+
+  getWeeklyProfile(weeks = 4): Observable<WeeklyProfile> {
+    const params = new HttpParams().set('weeks', weeks);
+    return this.http.get<WeeklyProfile>('/api/insights/weekly-profile', { params });
   }
 
   getCycleInfo(): Observable<CycleInfo> {

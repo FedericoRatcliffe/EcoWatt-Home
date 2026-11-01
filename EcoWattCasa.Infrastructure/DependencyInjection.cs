@@ -2,6 +2,7 @@ using EcoWattCasa.Application.Billing;
 using EcoWattCasa.Domain.Interfaces;
 using EcoWattCasa.Infrastructure.Billing;
 using EcoWattCasa.Infrastructure.Mqtt;
+using EcoWattCasa.Infrastructure.Notifications;
 using EcoWattCasa.Infrastructure.Persistence;
 using EcoWattCasa.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,11 @@ public static class DependencyInjection
         // Se puede apagar con "Mqtt:Enabled": false para levantar solo la API sin MQTT.
         if (configuration.GetValue($"{MqttOptions.SectionName}:Enabled", true))
             services.AddHostedService<MqttListenerService>();
+
+        var notifications = configuration.GetSection(NotificationOptions.SectionName);
+        services.Configure<NotificationOptions>(notifications);
+        if (notifications.Get<NotificationOptions>()?.IsConfigured == true)
+            services.AddHostedService<AlertNotifierService>();
 
         return services;
     }

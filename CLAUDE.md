@@ -23,7 +23,7 @@ Postgres (cubre el ciclo actual y el anterior, que es lo que la comparacion nece
 
 ```bash
 dotnet build                                               # solucion entera (EcoWattCasa.slnx)
-dotnet test EcoWattCasa.Tests                              # 280 tests, ~250 ms, sin base ni red
+dotnet test EcoWattCasa.Tests                              # 316 tests, ~250 ms, sin base ni red
 cd ecowatt-frontend && npx ng test --watch=false            # smoke del dashboard (vitest + jsdom)
 docker compose --profile mock up -d --build                 # todo en Docker, frontend en :8081
 
@@ -69,6 +69,11 @@ Donde vive la logica que importa:
 | `Application/Common/HouseConsumption.cs` | Total de la casa (sale del medidor, no de la suma) y consumo no identificado |
 | `Application/Mqtt/EnergyValue.cs` | Un campo de ENERGY que puede venir escalar o como array por canal |
 | `Domain/Entities/RelayGuard.cs` | Si un ON/OFF se puede ejecutar: sin rele, bloqueado, o demasiado seguido |
+| `Application/Common/BaseLoad.cs` | Consumo base: la hora mas baja de cada madrugada (00-08), mediana de las noches |
+| `Application/Common/SavingsSimulator.cs` | "Cuanto ahorro si...": la factura del ciclo armada dos veces, con y sin el cambio |
+| `Application/Common/BillCheck.cs` | Factura real contra lo medido, sin juzgar al medidor por un periodo medido a medias |
+| `Application/Common/WeeklyProfile.cs` | Semana tipica dia x hora, y dias habiles contra fin de semana |
+| `Application/Alerts/AlertNotificationTracker.cs` | Que alerta mandar por Telegram: una vez al aparecer, otra al resolverse |
 
 ## Convenciones
 
@@ -146,7 +151,12 @@ componente, `inject()` en vez de constructor, control flow `@if`/`@for` (nunca `
   embebido se registra antes del listener, porque el listener necesita el puerto escuchando.
 - **Columnas en snake_case** por `UseSnakeCaseNamingConvention()`; no escribas `HasColumnName`.
 - **Los enums viajan como texto** al frontend (`JsonStringEnumConverter`).
-- **Las alertas se calculan al pedirlas**, no se persisten.
+- **Las alertas se calculan al pedirlas**, no se persisten. Los avisos por Telegram recuerdan
+  en memoria que ya avisaron (codigo + dispositivo, nunca el texto, que cambia con cada
+  proyeccion); tras un reinicio se repiten una vez, a proposito.
+- **El consumo base es la hora mas baja, no el minimo por minuto ni el promedio de la noche.**
+  Por minuto agarraria la heladera con el compresor apagado; el promedio sube con cualquiera
+  que mire tele hasta tarde. Una hora medida menos de 45 min no cuenta.
 - **El objetivo de factura se guarda en pesos, nunca en kWh.** Los kWh que permite dependen de
   la tarifa y se recalculan en cada pedido con `GoalPlanner`; guardarlos los dejaria viejos con
   el proximo cuadro tarifario.

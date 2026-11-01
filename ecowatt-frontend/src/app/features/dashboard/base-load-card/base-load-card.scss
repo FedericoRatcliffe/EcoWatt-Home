@@ -1,0 +1,45 @@
+@use 'variables' as *;
+
+:host {
+  display: block;
+}
+
+.card {
+  height: 100%;
+}
+
+.headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.last-night {
+  text-align: right;
+
+  &.up .last-value,
+  &.up .stat-sub {
+    color: $red-700;
+  }
+}
+
+.last-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: $text-strong;
+  font-variant-numeric: tabular-nums;
+}
+
+td.actions {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.footnote {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}

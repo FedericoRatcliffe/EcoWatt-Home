@@ -308,6 +308,12 @@
         }
       }
 
+      <!-- Lo que se gasta sin usar nada, y cuanto se ahorraria cortandolo. -->
+      <section class="grid halves charts">
+        <app-base-load-card (simulate)="simulatorPreset.set($event)" />
+        <app-simulator-card [preset]="simulatorPreset()" />
+      </section>
+
       <!-- Graficos -->
       <section class="grid halves charts">
         <div class="card">
@@ -434,6 +440,53 @@
             <app-chart [option]="hourlyOption()" [height]="260" />
           }
         </div>
+      </section>
+
+      <section class="grid charts">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Consumo de la casa por mes</h2>
+              <span class="sub">mes calendario &middot; la barra clara es el mes en curso</span>
+            </div>
+            <button class="btn ghost" type="button" (click)="showMonthlyTable.set(!showMonthlyTable())">
+              {{ showMonthlyTable() ? 'Ver grafico' : 'Ver tabla' }}
+            </button>
+          </div>
+
+          @if (showMonthlyTable()) {
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th class="num">kWh</th>
+                    <th class="num">Factura</th>
+                    <th>Medicion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of monthly(); track m.year * 100 + m.month) {
+                    <tr>
+                      <td>{{ m.label }}</td>
+                      <td class="num">{{ kwh(m.kwh) }}</td>
+                      <td class="num">{{ money(m.cost) }}</td>
+                      <td class="muted">{{ monthDetail(m) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else if (monthly().length === 0) {
+            <div class="empty">Todavia no hay lecturas de ningun mes.</div>
+          } @else {
+            <app-chart [option]="monthlyOption()" [height]="260" />
+          }
+        </div>
+      </section>
+
+      <section class="grid charts">
+        <app-weekly-profile-card />
       </section>
 
       @if (cycleInfo(); as c) {

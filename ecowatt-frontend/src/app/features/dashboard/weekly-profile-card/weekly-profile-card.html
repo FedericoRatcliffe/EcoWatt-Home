@@ -1,0 +1,61 @@
+<div class="card">
+  <div class="card-head">
+    <div>
+      <h2>Semana tipica de la casa</h2>
+      <span class="sub">
+        potencia media por dia y hora, ultimas {{ weeks }} semanas
+        @if (weekendText(); as w) {
+          &middot; {{ w }}
+        }
+      </span>
+    </div>
+    <button class="btn ghost" type="button" (click)="showTable.set(!showTable())">
+      {{ showTable() ? 'Ver grafico' : 'Ver tabla' }}
+    </button>
+  </div>
+
+  @if (failed()) {
+    <div class="empty">No se pudo calcular la semana tipica.</div>
+  } @else if (!data()) {
+    <div class="empty">Cargando...</div>
+  } @else if (!hasData()) {
+    <div class="empty">Todavia no hay un dia entero medido.</div>
+  } @else if (showTable()) {
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Dia</th>
+            <th class="num">kWh del dia</th>
+            <th class="num">Hora pico</th>
+            <th class="num">Hora mas baja</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.name) {
+            <tr>
+              <td>{{ r.name }}</td>
+              <td class="num">{{ r.kwh === null ? '--' : kwh(r.kwh) }}</td>
+              <td class="num">
+                @if (r.peak; as p) {
+                  {{ hourText(p.hour) }} &middot; {{ watts(p.avgWatts) }}
+                } @else {
+                  --
+                }
+              </td>
+              <td class="num">
+                @if (r.low; as l) {
+                  {{ hourText(l.hour) }} &middot; {{ watts(l.avgWatts) }}
+                } @else {
+                  --
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <app-chart [option]="option()" [height]="300" />
+  }
+</div>

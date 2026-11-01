@@ -56,6 +56,8 @@
                 <th>Medicion</th>
                 <th class="num">Dias</th>
                 <th class="num">kWh</th>
+                <th class="num">Medido</th>
+                <th>Control</th>
                 <th class="num">Total</th>
                 <th class="num">$/kWh</th>
                 <th></th>
@@ -68,6 +70,11 @@
                   <td class="muted">{{ b.readingFrom }} a {{ b.readingTo }}</td>
                   <td class="num">{{ b.days }}</td>
                   <td class="num">{{ b.kwh }}</td>
+                  <td class="num">{{ billChecks()[b.id] ? kwh(billChecks()[b.id].measuredKwh) : '--' }}</td>
+                  <td>
+                    @let check = checkText(billChecks()[b.id]);
+                    <span class="check" [class]="check.kind">{{ check.text }}</span>
+                  </td>
                   <td class="num">{{ money(b.total) }}</td>
                   <td class="num">{{ money(b.averagePricePerKwh) }}</td>
                   <td class="actions">
@@ -78,6 +85,11 @@
             </tbody>
           </table>
         </div>
+        <p class="muted hint">
+          "Medido" es lo que vio el tablero entre las dos lecturas de la factura. Si coincide con lo
+          facturado (5 % de tolerancia), las estimaciones del dashboard valen. Con el periodo medido a
+          medias no se compara: el faltante es de las horas sin dato, no del medidor.
+        </p>
       }
     </div>
 

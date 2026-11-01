@@ -43,6 +43,17 @@ public sealed class DashboardController(DashboardService dashboard, HomeTimeZone
         return Ok(await dashboard.GetPeriodAsync(cycle, offset, year, month, ct));
     }
 
+    /// <summary>Consumo y factura de la casa por mes calendario, del mas viejo al actual.</summary>
+    [HttpGet("monthly")]
+    public async Task<ActionResult<IReadOnlyList<MonthlyPointDto>>> GetMonthly(
+        [FromQuery] int months = 12, CancellationToken ct = default)
+    {
+        if (months is < 1 or > 36)
+            return BadRequest(new { error = "'months' tiene que estar entre 1 y 36." });
+
+        return Ok(await dashboard.GetMonthlyAsync(months, ct));
+    }
+
     /// <summary>Donde esta anclado el ciclo de facturacion y de que dato salio.</summary>
     [HttpGet("cycle")]
     public async Task<ActionResult<object>> GetCycle(CancellationToken ct)

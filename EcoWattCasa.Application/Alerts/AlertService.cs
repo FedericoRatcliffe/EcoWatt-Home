@@ -21,6 +21,7 @@ public sealed class AlertService(
     ITariffRepository tariffs,
     IBillGoalRepository goals,
     DashboardService dashboard,
+    InsightsService insights,
     HomeTimeZone tz,
     BillingCycles cycles,
     IOptions<AlertThresholds> thresholds)
@@ -70,6 +71,8 @@ public sealed class AlertService(
             ? GoalPlanner.Evaluate(goal.Amount, cycle, elapsed, period.Bill.TotalKwh, projectedCost, history)
             : null;
 
+        var baseLoad = await BuildBaseLoadShiftAsync(allDevices, period.Bill.MarginalPricePerKwh, ct);
+
         return new AlertContext(
             cycle,
             elapsed,
@@ -79,8 +82,35 @@ public sealed class AlertService(
             period.PreviousPeriodCost ?? 0m,
             ClosingTariff(history, cycle.To),
             statuses,
-            goalProgress);
+            goalProgress,
+            baseLoad);
     }
+
+    /// <summary>
+    /// Anoche contra las noches anteriores. null mientras no haya suficientes noches medidas
+    /// para saber que es lo normal.
+    /// </summary>
+    private async Task<BaseLoadShift?> BuildBaseLoadShiftAsync(
+        IReadOnlyList<Device> allDevices, decimal marginalPrice, CancellationToken ct)
+    {
+        var (summary, _) = await insights.GetBaseLoadSummaryAsync(BaseLoadNights, ct);
+        if (summary is not { LastNightWatts: { } last, TypicalWatts: { } typical })
+            return null;
+
+        // Solo enchufes: el medidor de tablero es la casa entera, no un sospechoso.
+        var names = HouseConsumption.Appliances(allDevices).ToDictionary(d => d.Id, d => d.Name);
+        var top = summary.DeviceLastNightWatts
+            .Where(kv => summary.DeviceTypicalWatts.ContainsKey(kv.Key) && names.ContainsKey(kv.Key))
+            .Select(kv => (Name: names[kv.Key], Rise: kv.Value - summary.DeviceTypicalWatts[kv.Key]))
+            .Where(x => x.Rise > 0)
+            .OrderByDescending(x => x.Rise)
+            .FirstOrDefault();
+
+        return new BaseLoadShift(last, typical, marginalPrice, top.Name, top.Rise);
+    }
+
+    /// <summary>Noches contra las que se compara la ultima.</summary>
+    private const int BaseLoadNights = 14;
 
     private static TariffSchedule? ClosingTariff(IReadOnlyList<TariffSchedule> history, DateOnly periodEnd)
         => history

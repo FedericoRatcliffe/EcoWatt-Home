@@ -47,7 +47,25 @@ public sealed class AlertThresholds
 
     /// <summary>Cuanto tiene que superar la proyeccion al ciclo anterior para avisar (fraccion).</summary>
     public decimal OverrunRatio { get; set; } = 0.15m;
+
+    /// <summary>Watts que tiene que subir el consumo base de una noche para avisar.</summary>
+    public double BaseLoadRiseWatts { get; set; } = 20;
+
+    /// <summary>
+    /// Fraccion del piso tipico que tiene que subir, ademas de los watts. En una casa de 150 W
+    /// de base manda <see cref="BaseLoadRiseWatts"/>; en una de 400 W, esto.
+    /// </summary>
+    public double BaseLoadRiseRatio { get; set; } = 0.15;
 }
+
+/// <summary>La ultima noche contra las anteriores. Ver <see cref="BaseLoad"/>.</summary>
+/// <param name="TopDeviceName">El enchufe cuyo piso mas subio, si subio alguno.</param>
+public sealed record BaseLoadShift(
+    double LastNightWatts,
+    double TypicalWatts,
+    decimal MarginalPricePerKwh,
+    string? TopDeviceName = null,
+    double TopDeviceRiseWatts = 0);
 
 /// <summary>Todo lo que las reglas necesitan para decidir, ya resuelto.</summary>
 /// <param name="PreviousCycleCost">0 si el ciclo anterior no se midio lo suficiente para compararse.</param>
@@ -61,7 +79,8 @@ public sealed record AlertContext(
     decimal PreviousCycleCost,
     TariffSchedule? Tariff,
     IReadOnlyList<DeviceStatus> Devices,
-    GoalProgress? Goal = null);
+    GoalProgress? Goal = null,
+    BaseLoadShift? BaseLoad = null);
 
 /// <summary>
 /// Las reglas de alerta. Son una funcion pura del estado: reciben el contexto ya armado y no
@@ -81,6 +100,7 @@ public static class AlertRules
         alerts.AddRange(BlockCrossing(context));
         alerts.AddRange(Overrun(context, thresholds));
         alerts.AddRange(Goal(context));
+        alerts.AddRange(BaseLoadRise(context, thresholds));
 
         // Lo mas grave primero; dentro de la misma gravedad, el orden en que se generaron.
         return alerts.OrderByDescending(a => a.Severity).ToList();
@@ -287,6 +307,36 @@ public static class AlertRules
                     $"{goal.AllowedKwhPerDay ?? 0:0.#} kWh por dia en los {Plural(goal.DaysLeft, "dia")} que faltan.");
                 break;
         }
+    }
+
+    // ---------- Consumo base ----------
+
+    /// <summary>
+    /// Algo que quedo prendido, o un aparato que empezo a gastar de mas en standby. No se ve de
+    /// dia, entre el resto del consumo, y se paga las 24 horas: por eso se mira la madrugada.
+    /// </summary>
+    private static IEnumerable<Alert> BaseLoadRise(AlertContext context, AlertThresholds thresholds)
+    {
+        if (context.BaseLoad is not { } b)
+            yield break;
+
+        var rise = b.LastNightWatts - b.TypicalWatts;
+        var needed = Math.Max(thresholds.BaseLoadRiseWatts, b.TypicalWatts * thresholds.BaseLoadRiseRatio);
+        if (rise < needed)
+            yield break;
+
+        var cycleKwh = BaseLoad.CycleKwh(rise);
+        var culprit = b.TopDeviceName is not null && b.TopDeviceRiseWatts >= thresholds.BaseLoadRiseWatts / 2
+            ? $" La que mas subio: {b.TopDeviceName} (+{b.TopDeviceRiseWatts:0} W)."
+            : " Ningun enchufe medido subio: es algo del resto de la casa.";
+
+        yield return new Alert(
+            "base-load-up",
+            AlertSeverity.Warning,
+            $"Subio el consumo base: {b.LastNightWatts:0} W",
+            $"Anoche la casa no bajo de {b.LastNightWatts:0} W y lo normal es {b.TypicalWatts:0} W. " +
+            $"Si queda asi son {cycleKwh:0} kWh mas por ciclo, unos {Money((decimal)cycleKwh * b.MarginalPricePerKwh)}." +
+            culprit);
     }
 
     // ---------- Formato ----------

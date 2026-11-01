@@ -19,6 +19,8 @@ export interface ChartTheme {
   series1Soft: string;
   good: string;
   critical: string;
+  /** Escala secuencial de un solo tono, de claro a oscuro: para magnitudes (mapa de calor). */
+  sequential: string[];
   font: string;
 }
 
@@ -33,6 +35,8 @@ const THEME: ChartTheme = {
   series1Soft: 'rgba(0, 136, 212, 0.14)',
   good: '#0a9469',
   critical: '#c93030',
+  // $blue-600 al centro; los extremos salen de $blue-400 y $blue-700 de _variables.scss.
+  sequential: ['#eef6fc', '#47bcff', '#0088d4', '#006bb0'],
   font: "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 

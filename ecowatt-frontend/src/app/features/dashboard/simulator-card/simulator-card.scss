@@ -1,0 +1,73 @@
+@use 'variables' as *;
+
+:host {
+  display: block;
+}
+
+.card {
+  height: 100%;
+}
+
+.shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+
+  input {
+    width: 7rem;
+  }
+}
+
+.hint {
+  font-size: 0.78rem;
+}
+
+.warn {
+  color: $red-700;
+  font-size: 0.82rem;
+  margin: 0.7rem 0 0;
+}
+
+.result {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: $radius-md;
+  border-left: 3px solid $green-700;
+  background: rgba($green-700, 0.05);
+
+  &.up {
+    border-left-color: $red-700;
+    background: rgba($red-500, 0.05);
+  }
+}
+
+.saving {
+  font-size: 1.05rem;
+  color: $text-strong;
+  margin: 0.15rem 0 0.3rem;
+
+  strong {
+    font-size: 1.25rem;
+  }
+}
+
+.footnote {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}

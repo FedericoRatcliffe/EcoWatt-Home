@@ -1,0 +1,83 @@
+<div class="card">
+  <div class="card-head">
+    <div>
+      <h2>Consumo base</h2>
+      <span class="sub">lo que gasta la casa sin que nadie use nada</span>
+    </div>
+  </div>
+
+  @if (failed()) {
+    <div class="empty">No se pudo calcular el consumo base.</div>
+  } @else if (data(); as d) {
+    @if (d.houseWatts === null) {
+      <div class="empty">
+        Todavia no hay ninguna madrugada medida entera. Aparece despues de la primera noche con la
+        API andando de {{ hourText(d.windowStartHour) }} a {{ hourText(d.windowEndHour) }}.
+      </div>
+    } @else {
+      <div class="headline">
+        <div>
+          <div class="stat-value">{{ watts(d.houseWatts) }}</div>
+          <div class="stat-sub">
+            {{ kwh(d.monthlyKwh) }} y <strong>{{ money(d.monthlyCost) }}</strong> por ciclo
+            @if (d.sharePercent !== null) {
+              &middot; {{ percent(d.sharePercent, 0) }} del consumo del ciclo
+            }
+          </div>
+        </div>
+
+        @if (lastNight(); as n) {
+          <div class="last-night" [class.up]="n.up">
+            <div class="stat-label">Anoche</div>
+            <div class="last-value">{{ watts(n.value) }}</div>
+            <div class="stat-sub">
+              @if (n.up) {
+                <span aria-hidden="true">&uarr;</span>
+              }
+              {{ n.text }}
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>De donde sale</th>
+              <th class="num">Base</th>
+              <th class="num">Por ciclo</th>
+              <th class="num">Anoche</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of d.devices; track row.deviceId) {
+              <tr [class.muted]="row.isUnidentified">
+                <td>{{ row.name }}</td>
+                <td class="num">{{ watts(row.watts) }}</td>
+                <td class="num">{{ money(row.monthlyCost) }}</td>
+                <td class="num">{{ watts(row.lastNightWatts) }}</td>
+                <td class="actions">
+                  @if (row.watts > 0) {
+                    <button class="btn ghost" type="button" (click)="simulateCut(row)">Simular</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <p class="muted footnote">
+        La hora mas baja de cada madrugada ({{ hourText(d.windowStartHour) }} a
+        {{ hourText(d.windowEndHour) }}), mediana de {{ d.nights }}
+        {{ d.nights === 1 ? 'noche' : 'noches' }}. Si alguien mira tele hasta tarde no importa:
+        alcanza con una hora de casa quieta. Costo al precio del kWh extra
+        ({{ money(d.marginalPricePerKwh) }}).
+      </p>
+    }
+  } @else {
+    <div class="empty">Cargando...</div>
+  }
+</div>
