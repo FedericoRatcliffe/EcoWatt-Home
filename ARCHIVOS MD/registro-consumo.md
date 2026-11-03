@@ -17,7 +17,7 @@ entran y salen, asi que un salto en esas zapatillas puede ser solo un cargador.
 | Medidor de tablero (EM2) | La casa entera | |
 | Zapatilla Fede | La PC y la tele, que se usa como monitor de la PC | Cargador de la notebook, cargador del celu |
 | Zapatilla Fede Habitacion | La tele de la habitacion | Cargadores u otra cosa que haga falta |
-| Zapatilla Andy 1 | Impresora, DVR de las camaras, cargador de notebook, 2 lamparas, tele y home theater | |
+| Zapatilla Andy 1 | Impresora, DVR de las camaras con su monitor, estabilizador de tension (alimenta el monitor y el cargador), cargador de notebook, 2 lamparas, tele y home theater | |
 | Zapatilla Paula | PC, monitor/tele, home theater y 1 lampara | |
 
 - **Zapatilla Andy 1** es una zapatilla de dos tomas con otra zapatilla enchufada en una de
@@ -181,12 +181,102 @@ notebook. Datos hasta las 10:22, sin huecos (855 lecturas por equipo).
 - **09:30, pico de 1,37 kW fuera de los enchufes**, unos minutos: el desayuno (pava o
   microondas). Normal. Al mismo tiempo Andy 1 subio a ~89 W un rato: alguien la uso.
 
+## 01/11 y 02/11/2026 - Dos noches mas y los 5 W de la Zapatilla Andy 1
+
+**Noche del 31/10 al 01/11, tramo tranquilo de 02:45 a 06:15:** casa 149 W (0,52 kWh en
+3,5 h). Andy 1 49 W, PC 33 W, Paula 10 W, Fede Habitacion 0 W, no identificado 57 W.
+De 00:45 a 01:30 hubo ~100 W extra fuera de los enchufes, parejos (casa en 250-267 W):
+algo enchufado a la pared, sin identificar.
+
+**Noche del 01/11 al 02/11, tramo tranquilo de 01:00 a 06:00:**
+
+| Equipo | Promedio | Energia en 5 h |
+|---|---|---|
+| **Casa entera** | **150 W** (minimo 114) | **0,75 kWh** |
+| No identificado (heladera, router, T8V) | 60 W | ~0,30 kWh |
+| Zapatilla Andy 1 | 49 W | 0,248 kWh |
+| Zapatilla Fede (la PC) | 33 W | 0,165 kWh |
+| Zapatilla Paula | 8 W | 0,038 kWh |
+| Zapatilla Fede Habitacion | 0 W | 0,003 kWh |
+
+**Hallazgos:**
+
+- **Cuatro noches, la misma base: 136-150 W.** El orden no cambia: heladera y router, Andy 1,
+  la PC, Paula. La tele de la habitacion en standby marca 0 W.
+- **Los 5 W que Andy 1 pierde a la mañana son, casi seguro, el infrarrojo de las camaras.**
+  Tres mañanas seguidas bajo de 49 a 44 W cerca de las 06:00, y no de golpe sino en rampa:
+  el 02/11 fue 49 -> 44 W entre las 05:56 y las 06:06, justo con la salida del sol. El 31/10,
+  apagado lo que estaba en uso a las 19:15, la zapatilla quedo en 43-44 W y subio sola a
+  49 W en rampa hasta las 19:40, con la puesta del sol. Es lo que hacen las camaras con vision
+  nocturna: prenden los LEDs infrarrojos al oscurecer. O sea que el standby real de Andy 1 es
+  ~44 W de dia y ~49 W de noche, y esos 5 W no se pueden sacar sin perder las camaras de
+  noche.
+- **El 01/11 a la noche Andy 1 quedo en 55 W y no en 49 W** de 20:30 a 22:30: algo quedo
+  prendido unas dos horas despues de dejar de usarla.
+
+## 03/11/2026 - El monitor del DVR: 26 de los 49 W de Andy 1
+
+En la Zapatilla Andy 1 tambien esta enchufado el monitor del DVR de las camaras, que no
+figuraba en el relevamiento. Quedaba prendido todo el tiempo.
+
+**Metodo:** lectura en vivo cada 2 s, como el experimento de los T8V, y la telemetria de 30 s
+para ver el corte.
+
+| Paso | Zapatilla Andy 1 | Corriente |
+|---|---|---|
+| 1. Todo como de noche (02/11 23:58) | 49 W fijos | 0,329 A |
+| 2. Monitor del DVR apagado (cambio entre 23:59:27 y 23:59:57) | 23 W fijos | 0,158 A |
+
+**Resultado:**
+
+- **El monitor del DVR gastaba 26 W, mas de la mitad del standby de Andy 1.** Prendido 24/7
+  son ~19 kWh por mes, ~$6.600 al precio marginal de octubre. El DVR sigue grabando con el
+  monitor apagado: solo hace falta prenderlo para mirar las camaras.
+- **Quedan 23 W:** el DVR, el infrarrojo de las camaras (~5 W, solo de noche) y el standby de
+  impresora, cargador, tele y home theater. Se separaron a la tarde (abajo).
+
+## 03/11/2026 - Experimento: que queda en los 17 W de Andy 1
+
+**Condiciones:** de 19:05 a 19:18, de dia (el infrarrojo de las camaras todavia apagado), con
+el monitor del DVR apagado y nada en uso. Lectura en vivo cada 2 s, desenchufando una cosa
+por vez, ~20 s por paso.
+
+| Paso | Zapatilla Andy 1 | Corriente | Standby de lo que se saco |
+|---|---|---|---|
+| 0. Punto de partida | 17 W | 0,121 A | |
+| 1. Impresora desenchufada | 17 W | 0,123 A | < 1 W |
+| 2. Cargador de la notebook (bateria llena, notebook sin usar) | 16-17 W | 0,122 A | < 1 W |
+| 3. Home theater | 13 W | 0,100 A | ~4 W |
+| 4. Tele | 13 W | 0,103 A | < 1 W |
+| 5. Las 2 lamparas, apagadas | 13 W | 0,100 A | 0 W |
+| 6. Estabilizador de tension S4 Slim en NO, sin carga detras | 10 W | 0,088 A | ~3 W |
+
+En la zapatilla tambien esta un estabilizador de tension (S4 Slim, de transformador), que no
+figuraba en el relevamiento. De su salida cuelgan el monitor del DVR y el cargador de la
+notebook; el DVR y la fuente de 12 V de las camaras van directo a la zapatilla.
+
+**Resultado:**
+
+- **El DVR con las camaras gasta 10 W de dia y ~15 W de noche** con el infrarrojo. Es lo
+  unico que tiene que quedar prendido.
+- **De los 49 W fijos de la noche, el reparto queda asi:** monitor del DVR 26 W, DVR y camaras
+  ~15 W, home theater ~4 W, estabilizador ~3 W, y menos de 1 W entre impresora, cargador,
+  tele y lamparas.
+- **Lo que vale la pena cortar es el monitor del DVR** (~$6.600 por mes). Como el monitor
+  cuelga del estabilizador, **la llave del estabilizador en NO corta las dos cosas juntas**
+  (~29 W, ~$7.400 por mes) sin tocar las camaras; se prende solo para mirarlas. El home
+  theater suma ~3 kWh por mes (~$1.000): se puede cortar con una zapatilla con llave si no se
+  usa seguido. El resto no justifica tocarlo.
+- Con el estabilizador en NO, el standby de Andy 1 pasa de 49 a ~19 W de noche, y la base de
+  la casa de ~145 a ~115 W.
+
 ## Pendientes
 
 El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan-de-mediciones.md).
 
-- [ ] Separar el standby de la Zapatilla Andy 1 (49 W fijos de noche): cuanto es el DVR,
-  que tiene que quedar prendido, y cuanto el resto (impresora, cargador, tele, home theater).
+- [x] Separar el standby de la Zapatilla Andy 1 (49 W fijos de noche): 03/11, el monitor del
+  DVR eran 26 W; el DVR con las camaras, 10-15 W; el home theater, ~4 W; el estabilizador,
+  ~3 W.
 - [x] Relevar que hay enchufado en la zapatilla de Andy 1 (30/10).
 - [x] Relevar que hay enchufado en la Zapatilla Paula (30/10).
 - [x] Experimento: verificar que la Zapatilla Fede lea el consumo de los Adam Audio T8V

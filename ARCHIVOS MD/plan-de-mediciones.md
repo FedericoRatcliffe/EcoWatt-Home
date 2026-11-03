@@ -28,7 +28,10 @@ son, en la practica, el costo del servidor.
 
 ## Pendientes
 
-### Separar los 49 W fijos de la Zapatilla Andy 1
+### ~~Separar los 49 W fijos de la Zapatilla Andy 1~~ (hecho el 03/11/2026)
+
+Resultado en el registro: el monitor del DVR eran 26 W, el DVR con las camaras 10-15 W, el
+home theater ~4 W y el estabilizador ~3 W. Lo que sigue queda como referencia del metodo.
 
 El standby mas grande de la casa: 49 W todo el mes son ~35 kWh, ~$12.500. En la zapatilla
 estan impresora, DVR de las camaras, cargador de notebook, 2 lamparas, tele y home theater.
