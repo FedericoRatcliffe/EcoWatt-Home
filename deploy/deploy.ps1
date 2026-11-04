@@ -55,6 +55,13 @@ docker compose -p ecowatt logs --tail 40 api
 exit 1
 "@
 
-# bash no acepta CRLF, y este archivo puede venir con CRLF segun como lo haya sacado git.
-($remote -replace "`r", '') | ssh -o BatchMode=yes $Server 'bash -s'
+# Por archivo y no por pipe a `bash -s`: PowerShell 5 le antepone un BOM al texto que le pasa a
+# un ejecutable, y pegado al `set -eu` lo vuelve un comando desconocido; el script seguiria de
+# largo ante cualquier error. Sin CRLF porque este .ps1 puede venir con CRLF segun git.
+$script = Join-Path $env:TEMP "ecowatt-deploy-$commit.sh"
+[IO.File]::WriteAllText($script, ($remote -replace "`r", ''), (New-Object System.Text.UTF8Encoding $false))
+scp -q -o BatchMode=yes $script "${Server}:/tmp/ecowatt-deploy.sh"
+if ($LASTEXITCODE -ne 0) { throw 'No se pudo copiar el script al servidor.' }
+Remove-Item $script
+ssh -o BatchMode=yes $Server 'bash /tmp/ecowatt-deploy.sh; rc=$?; rm -f /tmp/ecowatt-deploy.sh; exit $rc'
 if ($LASTEXITCODE -ne 0) { throw "El deploy fallo en el servidor (codigo $LASTEXITCODE)." }
