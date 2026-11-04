@@ -33,6 +33,23 @@ dotnet ef migrations add <Nombre> -p EcoWattCasa.Infrastructure -s EcoWattCasa.I
 La migracion usa Infrastructure como startup project (hay un `DesignTimeDbContextFactory`), no
 la API. Scalar queda en `/scalar` solo en Development.
 
+## Produccion
+
+Desde el 04/11/2026 corre en un servidor casero (Ubuntu + Docker) en `192.168.1.7`; el
+README, "Dejarlo andando", tiene el detalle. Lo que importa al trabajar aca:
+
+- **`localhost` es desarrollo, no produccion.** Los datos reales viven en el servidor:
+  dashboard en `http://192.168.1.7:8081`, API por el mismo puerto en `/api`.
+- **Deploy:** `powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1` manda HEAD (no lo
+  sin commitear), hace backup, buildea al lado y cambia los contenedores al final.
+- **`deploy/docker-compose.server.yml` no se llama `docker-compose.override.yml` a proposito**:
+  con ese nombre lo tomaria tambien el compose de desarrollo. El deploy lo copia con ese nombre
+  en el servidor.
+- **Una migracion nueva corre sola en produccion** al arrancar la API despues del deploy. El
+  deploy hace un backup antes, pero una migracion destructiva merece pensarse dos veces.
+- **Los `.sh` van con LF** (`.gitattributes`): corren en Linux. El deploy exporta con
+  `core.autocrlf=false` por lo mismo.
+
 ## Arquitectura
 
 Clean Architecture, .NET 10. La direccion de dependencias es la regla que no se negocia:

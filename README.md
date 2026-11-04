@@ -5,7 +5,10 @@ mide el total de la casa y cuatro enchufes Athom miden aparato por aparato; todo
 publicando por MQTT. La API persiste en PostgreSQL y el dashboard Angular muestra kWh y costo en
 pesos por día y por ciclo de facturación, con la tarifa por tramos de la cooperativa.
 
-Stack: .NET 10 (Clean Architecture) · Angular 22 · PostgreSQL 17 · MQTT (broker embebido) · SignalR · ECharts.
+Stack: .NET 10 (Clean Architecture) · Angular 22 · PostgreSQL 17 (18 en producción) · MQTT (broker embebido) · SignalR · ECharts.
+
+Corre 24/7 en un servidor casero con Ubuntu y Docker, en http://192.168.1.7:8081: ver
+[Dejarlo andando](#dejarlo-andando).
 
 ---
 
@@ -430,8 +433,9 @@ Desde la consola de Tasmota (**Consola** en su página web), una sola línea:
 Backlog MqttHost 192.168.1.7; MqttPort 1883; TelePeriod 30; PowerDelta 0; PowerOnState 1; Power ON; Topic plug-fede
 ```
 
-- **`MqttHost`** — la IP de la PC donde corre la API. Verificala con `ipconfig` y fijala por
-  DHCP en el router, porque si cambia los equipos dejan de reportar.
+- **`MqttHost`** — la IP de la máquina donde corre la API: hoy el servidor de casa,
+  `192.168.1.7` (ver [Dejarlo andando](#dejarlo-andando)). Tiene que estar fijada por DHCP en
+  el router, porque si cambia los equipos dejan de reportar.
 - **`Topic`** — el nombre del dispositivo, sin los prefijos `tele/`, `stat/` ni `cmnd/`. Tiene
   que coincidir con el que figura en Configuración. Los que siembra la base son
   `em2-tablero`, `plug-paula`, `plug-andy-1`, `plug-fede-habitacion` y `plug-fede`.
@@ -502,8 +506,8 @@ mosquitto_sub -h 192.168.1.7 -t '#' -v
 ```
 
 El broker embebido escucha en todas las interfaces, así que los equipos de la LAN llegan sin
-configuración extra. Lo que sí hay que abrir es el **puerto 1883 en el firewall de Windows**
-para la red privada.
+configuración extra. Lo que sí hay que abrir es el **puerto 1883 en el firewall** de la máquina
+donde corre la API: en el servidor ya está en `ufw`; en Windows, para la red privada.
 
 ### 5. Cortar el mock y borrar lo simulado
 
@@ -526,61 +530,112 @@ Para medir un ciclo de facturación completo el backend tiene que estar vivo **t
 Tasmota publica y olvida: lo que no se ingiere en el momento no se recupera nunca, así que cada
 hora caída es un agujero permanente en los datos.
 
-### Qué tiene que estar prendido
+Desde el **4/11/2026** todo corre en un **servidor casero**: una PC vieja dedicada, prendida
+24/7, con Ubuntu Server y Docker. Hasta ese día corría en la PC de uso diario, que se apaga, se
+reinicia con cada actualización de Windows y está colgada de una zapatilla medida.
 
-| | ¿24/7? |
+### El servidor
+
+| | |
 |---|---|
-| PostgreSQL | Sí — es servicio de Windows con arranque automático, no hay que hacer nada |
-| **La API** | **Sí** — recibe MQTT y persiste. Sin ella no hay datos |
-| El frontend (`npm start`) | No — sólo para mirar el dashboard |
+| Equipo | PC vieja: placa Gigabyte GA-F2A68HM-H, AMD A4-7300 (2 núcleos), 4 GB de RAM (3,2 usables: el resto se lo reserva el video integrado), disco Toshiba de 1 TB mecánico |
+| Sistema | Ubuntu Server 26.04 LTS, sin entorno gráfico |
+| Red | Cable al router, **IP 192.168.1.7** reservada por DHCP |
+| Acceso | `ssh fratcliffe@192.168.1.7`, con llave desde la PC de escritorio |
+| Dashboard | **http://192.168.1.7:8081**, desde cualquier equipo de la casa |
+| Consumo | Unos 30-40 W fijos, en un enchufe sin medir: cae en "consumo no identificado" y sube el consumo base |
 
-### Build de release, no `dotnet run`
+Corren los tres servicios de `docker-compose.yml` (`postgres`, `api`, `frontend`) con
+[`deploy/docker-compose.server.yml`](deploy/docker-compose.server.yml) encima, copiado como
+`docker-compose.override.yml`. Ese archivo cambia sólo lo de producción: Postgres 18 (la
+versión de la base que se migró), la API en `Production`, Postgres y la API escuchando sólo en
+`127.0.0.1` (Docker publica puertos por delante del firewall, así que cerrarlos en `ufw` no
+alcanza), y los secretos en `~/ecowatt-secrets.env`, fuera del repo. Los tres contenedores
+juntos usan unos 250 MB de RAM.
 
-`dotnet run` es para desarrollo: recompila al arrancar y deja el SDK colgado. Para dejarlo
-andando se publica una vez y se ejecuta el `.exe`:
+Lo demás es configuración del sistema: `ufw` deja entrar sólo SSH (22), los Tasmota (1883) y el
+dashboard (8081); zram para no tocar el disco en un pico de memoria; zona horaria de Buenos
+Aires; actualizaciones de seguridad automáticas; logs de Docker rotados.
 
-```bash
-dotnet publish EcoWattCasa.API -c Release -o publish/api
+**Vuelve solo después de un corte de luz**, probado: el BIOS tiene *AC BACK → Always On* y los
+contenedores van con `restart: unless-stopped`. Tarda unos 20 segundos en estar recibiendo.
+
+### Por qué el servidor es la .7
+
+Los cinco Tasmota tenían `MqttHost 192.168.1.7`, que era la PC de escritorio. Cambiárselo
+**reinicia el equipo**, y no hay garantía de que el relé no corte un instante: en tres de esos
+enchufes hay una PC prendida. En vez de tocarlos se intercambiaron las reservas del router: el
+servidor pasó a la .7 y la PC de escritorio a la .39. Los Tasmota siguieron buscando la misma IP
+y se reconectaron solos.
+
+> El router (Huawei HG8145X6-10) **aplica una reserva nueva recién después de reiniciarlo**:
+> mientras tanto le sigue dando a cada equipo la IP que ya tenía.
+
+### Actualizar el servidor
+
+Desde la PC de escritorio, en la raíz del repo:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
 ```
 
-Eso genera `publish/` (ignorado por git). El arranque va por `ecowatt-api.cmd`, en la raíz del
-repo, que fija el puerto 5080 —el que espera el proxy del frontend— y el entorno `Production`.
+[`deploy/deploy.ps1`](deploy/deploy.ps1) manda **el último commit** (no lo que haya sin
+commitear), hace un backup, arma las imágenes nuevas al lado de las que están corriendo y recién
+al final cambia los contenedores. El build tarda unos 10 minutos en ese procesador, pero el
+corte de datos es de segundos. La versión anterior queda en `~/ecowatt.prev`; para volver:
 
-El broker MQTT escucha aparte en `0.0.0.0:1883`, así que los equipos de la LAN llegan igual
-aunque la API sólo sirva HTTP en `localhost`.
+```bash
+cd ~ && mv ecowatt ecowatt.mala && mv ecowatt.prev ecowatt
+cd ~/ecowatt && docker compose -p ecowatt up -d --build
+```
 
-### Que arranque solo
+### Backups
 
-En un mes Windows se reinicia por actualizaciones sí o sí. Si la API no vuelve sola se pierden
-horas o días sin que nadie se entere.
+| Dónde | Cuándo | Cuántos |
+|---|---|---|
+| Servidor, `~/backups` | Todas las noches a las 3:30 (cron) y antes de cada deploy | 30 días |
+| PC de escritorio, `Documents\EcoWatt-Backups` | Al iniciar sesión y a las 13:00 (tarea "EcoWatt Backup Pull") | 180 días |
 
-**La forma simple, sin permisos de administrador:** un acceso directo a `ecowatt-api.cmd` en la
-carpeta de Inicio. `Win + R` → `shell:startup` → pegar ahí el acceso directo.
+Son `pg_dump` de la base entera, de un par de MB porque las lecturas crudas se podan a los 21
+días. El script del servidor ([`deploy/ecowatt-backup.sh`](deploy/ecowatt-backup.sh)) comprueba
+que cada dump se pueda leer antes de guardarlo, y el de la PC
+([`deploy/pull-backups.ps1`](deploy/pull-backups.ps1)) deja un `pull.log` con cada pasada.
 
-**La alternativa, con consola elevada.** Las comillas internas `\"` no son decorativas: la
-ruta del repo tiene un espacio, y sin ellas `schtasks` la parte en dos y guarda una tarea rota
-—`<Command>C:\Users\Fede\Desktop\EcoWatt</Command>` con `Home\ecowatt-api.cmd` de argumento—
-que falla al iniciar sesión sin avisar.
+Para restaurar uno, con la API parada para que no escriba en el medio:
+
+```bash
+cd ~/ecowatt && docker compose -p ecowatt stop api
+docker exec -i ecowatt-postgres pg_restore -U ecowatt -d ecowatt --clean --if-exists --no-owner < ~/backups/ecowatt-AAAA-MM-DD.dump
+docker compose -p ecowatt start api
+```
+
+### Si algo no anda
+
+```bash
+ssh fratcliffe@192.168.1.7
+cd ~/ecowatt && docker compose ps && docker compose logs --tail 50 api
+```
+
+- **Si un `docker compose up` falla a medias** (por ejemplo, un puerto ocupado), los
+  contenedores pueden quedar con la red rota: la API no resuelve el nombre `postgres` y muere
+  con *"Resource temporarily unavailable"*. Se arregla con `docker compose down` y
+  `docker compose up -d`; la base no se pierde, vive en un volumen.
+- **En una instalación nueva, no marcar ningún snap** en el instalador de Ubuntu. Un Mosquitto
+  de snap ocupa el 1883 y la API no puede levantar su broker.
+- Para preguntarle a Claude por el consumo real hay una carpeta aparte, [`consultas/`](consultas/),
+  que lee esta API con permisos de sólo lectura.
+
+### Antes: la PC de escritorio
+
+Hasta el 4/11/2026 la API corría como build de release (`dotnet publish EcoWattCasa.API -c
+Release -o publish/api`) en la PC de escritorio, arrancada por `ecowatt-api.cmd` desde la tarea
+programada "EcoWatt API", hoy deshabilitada. Queda por si alguna vez hay que volver. Si se
+recrea la tarea, las comillas internas `\"` son obligatorias porque la ruta tiene un espacio, y
+`schtasks /Create` pide consola de administrador:
 
 ```
 schtasks /Create /TN "EcoWatt API" /TR "\"C:\Users\Fede\Desktop\EcoWatt Home\ecowatt-api.cmd\"" /SC ONLOGON /F
 ```
-
-Tampoco sirve `%CD%`: se expande sin comillas y el problema vuelve. Hay que escribir la ruta
-completa.
-
-`schtasks /Create` con `/SC ONLOGON` **falla con "Acceso denegado"** en una consola normal: hay
-que abrir el Símbolo del sistema como administrador. La única ventaja sobre la carpeta de Inicio
-es que el Programador puede arrancar la tarea sin que nadie inicie sesión, cosa que no hace
-falta si la máquina queda logueada.
-
-Para ver cómo quedó guardada de verdad, no alcanza con `/Query` a secas:
-
-```
-schtasks /Query /TN "EcoWatt API" /XML ONE
-```
-
-Para verificar que quedó: `schtasks /Query /TN "EcoWatt API"`.
 
 ---
 
@@ -761,6 +816,16 @@ una) y avisa cuando se resuelven.
    Para avisarle a toda la casa, agregá el bot a un grupo y usá el id del grupo (negativo).
 3. Pasá las dos cosas por variable de entorno, nunca en `appsettings.json`:
 
+En el servidor van en `~/ecowatt-secrets.env`, que el compose de producción lee si existe;
+después, `cd ~/ecowatt && docker compose -p ecowatt up -d api`:
+
+```
+Notifications__TelegramBotToken=123456:ABC...
+Notifications__TelegramChatId=987654321
+```
+
+En desarrollo, por variable de entorno:
+
 ```powershell
 $env:Notifications__TelegramBotToken = "123456:ABC..."
 $env:Notifications__TelegramChatId = "987654321"
@@ -768,8 +833,8 @@ dotnet run --project EcoWattCasa.API
 ```
 
 Lo ya avisado vive en memoria: si se reinicia la API, las alertas que sigan activas se
-mandan una vez más. Y como la API corre en la PC de la Zapatilla Fede, si esa PC se apaga
-no hay quién avise.
+mandan una vez más. Y si se cae el servidor entero no hay quién avise: el bot sale de la
+misma API.
 
 ---
 

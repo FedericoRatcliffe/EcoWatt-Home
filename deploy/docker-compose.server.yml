@@ -1,0 +1,36 @@
+# Ajustes del servidor de casa sobre el docker-compose.yml de desarrollo.
+#
+# En el servidor este archivo se copia como docker-compose.override.yml (lo hace deploy.ps1),
+# que compose carga solo. En el repo NO lleva ese nombre a proposito: si lo llevara, un
+# `docker compose up` en la PC de desarrollo tambien lo tomaria.
+services:
+  postgres:
+    # Misma version mayor que la base de la PC de Windows de la que se migro, para restaurar
+    # un pg_dump sin sorpresas. La imagen 18 guarda los datos en /var/lib/postgresql/18/docker y
+    # se niega a arrancar si hay algo montado en /var/lib/postgresql/data: por eso el volumen se
+    # reemplaza entero con !override en vez de sumarse al del compose base.
+    image: postgres:18-alpine
+    volumes: !override
+      - postgres18-data:/var/lib/postgresql
+    # Solo desde el propio servidor. Docker publica puertos por delante de ufw, asi que bloquearlo
+    # en el firewall no alcanzaria.
+    ports: !override
+      - "127.0.0.1:5432:5432"
+
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    # Secretos fuera del repo y fuera de ~/ecowatt (deploy.ps1 reemplaza esa carpeta entera).
+    # Por ahora solo el bot de Telegram: Notifications__TelegramBotToken y
+    # Notifications__TelegramChatId. Si el archivo no existe, los avisos quedan apagados.
+    env_file:
+      - path: ${HOME}/ecowatt-secrets.env
+        required: false
+    # La API no se expone a la LAN: el frontend la alcanza por la red interna de Docker. El 1883
+    # si, porque por ahi entran los Tasmota.
+    ports: !override
+      - "127.0.0.1:5080:8080"
+      - "1883:1883"
+
+volumes:
+  postgres18-data:

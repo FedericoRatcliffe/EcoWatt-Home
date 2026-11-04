@@ -333,6 +333,24 @@ heladera medida. Sin huecos desde las 00:27 hasta las 10:54.
 - **El no identificado en reposo bajo a ~25-30 W:** sin la heladera es el router, los T8V y lo
   que quede en standby fuera de los enchufes.
 
+## 04/11/2026 - EcoWatt pasa a un servidor casero
+
+**Desde las 11:52 la API, la base y el dashboard corren en una PC vieja dedicada** (AMD A4-7300,
+Ubuntu Server, IP 192.168.1.7), prendida 24/7. Hasta ahora corrian en la PC de escritorio, la
+de la Zapatilla Fede. El detalle tecnico esta en el README, "Dejarlo andando".
+
+- **Hueco en los datos de 11:42 a 11:52** por la mudanza. La energia de esos 10 minutos no se
+  perdio: los contadores acumulados de los Tasmota la registraron y entra en la hora de 11 a 12
+  (0,05 kWh en el medidor). Lo que falta es la curva de watts de ese rato.
+- **El servidor esta en un enchufe sin medir:** su consumo cae en "no identificado" y sube el
+  consumo base. Estimado en 30-40 W fijos (~22-29 kWh y ~$7.700-10.300 por ciclo al precio
+  marginal de hoy); todavia no esta medido.
+- **A cambio, la PC de escritorio ya no tiene por que quedar prendida de noche.** Hasta ahora
+  sumaba ~32 W en reposo en la Zapatilla Fede solo para que la API siguiera viva. Si se apaga
+  de noche, el aumento del servidor queda casi compensado.
+- La mediana de 14 noches del consumo base va a ir absorbiendo el cambio de a poco: una suba de
+  ~30 W en "no identificado" desde esta noche es el servidor, no un aparato nuevo.
+
 ## Pendientes
 
 El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan-de-mediciones.md).
@@ -345,3 +363,5 @@ El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan
 - [x] Experimento: verificar que la Zapatilla Fede lea el consumo de los Adam Audio T8V
   (30/10: lee bien, los monitores consumen muy poco).
 - [ ] Revisar si el adaptador de los T8V conecta la tierra.
+- [ ] Medir el consumo real del servidor casero: comparar el "no identificado" de las noches
+  antes y despues del 04/11, o enchufarlo un rato en una zapatilla medida.

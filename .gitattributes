@@ -1,0 +1,2 @@
+# Los scripts de shell corren en el servidor Linux: con CRLF bash falla en la primera linea.
+*.sh text eol=lf
