@@ -16,9 +16,15 @@ entran y salen, asi que un salto en esas zapatillas puede ser solo un cargador.
 |---|---|---|
 | Medidor de tablero (EM2) | La casa entera | |
 | Zapatilla Fede | La PC y la tele, que se usa como monitor de la PC | Cargador de la notebook, cargador del celu |
-| Zapatilla Fede Habitacion | La tele de la habitacion | Cargadores u otra cosa que haga falta |
 | Zapatilla Andy 1 | Impresora, DVR de las camaras con su monitor, estabilizador de tension (alimenta el monitor y el cargador), cargador de notebook, 2 lamparas, tele y home theater | |
 | Zapatilla Paula | PC, monitor/tele, home theater y 1 lampara | |
+| Heladera (desde el 03/11/2026) | La heladera sola, enchufada directo a la pared | |
+| ~~Zapatilla Fede Habitacion~~ (hasta el 03/11/2026) | La tele de la habitacion | Cargadores u otra cosa que haga falta |
+
+- **El enchufe de la habitacion paso a la heladera el 03/11/2026 a las 19:44.** La habitacion
+  gastaba 0 W en standby y ~0,07 kWh las noches de uso: ya estaba medida. Se le cambio el
+  topic a `plug-heladera`, se dio de alta "Heladera" con el rele bloqueado y "Zapatilla Fede
+  Habitacion" quedo desactivada, con su historial guardado.
 
 - **Zapatilla Andy 1** es una zapatilla de dos tomas con otra zapatilla enchufada en una de
   ellas: todo lo que cuelga de las dos pasa por el mismo enchufe medido, y el techo de
@@ -26,8 +32,9 @@ entran y salen, asi que un salto en esas zapatillas puede ser solo un cargador.
 - **Los monitores de estudio Adam Audio T8V van directo a la pared**, fuera de cualquier
   enchufe medido (desde el 30/10/2026).
 
-Lo que no pasa por ningun enchufe medido (heladera, router, luces, cocina, los T8V) aparece
-como "no identificado": la diferencia entre el medidor y la suma de los enchufes.
+Lo que no pasa por ningun enchufe medido (router, luces, cocina, los T8V, y la heladera hasta
+el 03/11) aparece como "no identificado": la diferencia entre el medidor y la suma de los
+enchufes.
 
 ---
 
@@ -269,6 +276,62 @@ notebook; el DVR y la fuente de 12 V de las camaras van directo a la zapatilla.
   usa seguido. El resto no justifica tocarlo.
 - Con el estabilizador en NO, el standby de Andy 1 pasa de 49 a ~19 W de noche, y la base de
   la casa de ~145 a ~115 W.
+
+## 03/11 y 04/11/2026 - Primeras horas de la heladera
+
+**Condiciones:** enchufada a las 19:44 del 03/11, de noche, sin abrirla casi. **La API no
+recibio datos de 20:13 a 20:32 ni de 21:28 a 00:27**, de ningun equipo: son huecos de la
+telemetria, no de la heladera. Quedan ~2 h de datos validos.
+
+**Lo que se ve:**
+
+- **Compresor inverter, de velocidad variable.** No prende y apaga a potencia fija: arranca
+  en ~28 W y sube. El primer ciclo, despues del corte, fue largo y fuerte (19:55-20:13, de 28
+  a 89 W) para recuperar el frio perdido. Despues, ciclos de ~30 min a 31-41 W y pausas de
+  ~15 min en 2-3 W (la electronica).
+- **Promedio medido: ~29 W, 0,138 kWh en el tiempo con datos.** Si se sostuviera serian
+  ~0,7 kWh por dia, ~21 kWh por mes (~$7.300). Es poco para una heladera, pero coherente con
+  un compresor inverter de noche y con la puerta cerrada.
+- **Cierra con el no identificado:** antes oscilaba entre 25 y 67 W; la heladera en marcha
+  suma ~35-40 W, asi que los ~25-30 W de piso eran router y demas.
+- **Falta un dia entero** con uso normal (puerta abierta, cocina caliente al mediodia) y, si
+  es no frost, el ciclo de descongelado, que mete una resistencia de 150-300 W unos 20-30 min
+  una o dos veces por dia. Recien con eso hay un numero por mes confiable.
+
+## 04/11/2026 - La noche sin el monitor del DVR y el descongelado de la heladera
+
+**Condiciones:** primera noche con el monitor del DVR apagado (estabilizador en SI) y la
+heladera medida. Sin huecos desde las 00:27 hasta las 10:54.
+
+**Tramo de 01:00 a 06:00:**
+
+| Equipo | Promedio | Energia en 5 h |
+|---|---|---|
+| **Casa entera** | **173 W** (minimo 85) | **0,864 kWh** |
+| Heladera | 53 W (con el descongelado adentro) | 0,264 kWh |
+| No identificado (router, T8V, resto) | 47 W | |
+| Zapatilla Fede (la PC) | 40 W (32 W desde las 02:00) | 0,199 kWh |
+| Zapatilla Andy 1 | **25 W fijos** | 0,128 kWh |
+| Zapatilla Paula | 8 W | 0,038 kWh |
+
+**Hallazgos:**
+
+- **El ahorro del monitor se confirma: Andy 1 paso de 49 a 25 W fijos toda la noche** (-24 W,
+  ~17 kWh y ~$6.100 por mes). De dia, 17 W.
+- **La heladera es no frost y anoche descongelo de 03:40 a 04:55: 125 W con factor de
+  potencia 1,0** (una resistencia pura, el compresor apagado). 75 min, ~0,155 kWh por
+  descongelado. Al terminar, el compresor arranco mas fuerte (40-47 W) para recuperar el frio.
+- **Fuera del descongelado, la heladera sigue el patron de ciclos inverter:** ~30 min a 31-41 W
+  y pausas en 1-3 W. En las 10 h continuas de 00:30 a 10:30 gasto 0,412 kWh (41 W de
+  promedio), con un descongelado adentro.
+- **Estimacion provisoria: ~0,8 kWh por dia, ~23 kWh por mes (~$8.200)** si descongela una vez
+  por dia; ~30 kWh si lo hace cada ~10 h. Hace falta ver cuando viene el proximo para saber la
+  frecuencia.
+- **La base sin uso queda en ~120 W** (PC 32 + Andy 25 + Paula 7 + heladera ~26 de promedio
+  sin descongelar + ~28 de router y resto), contra ~145 W antes del monitor. El minimo de la
+  noche fue 85 W, con la heladera en pausa.
+- **El no identificado en reposo bajo a ~25-30 W:** sin la heladera es el router, los T8V y lo
+  que quede en standby fuera de los enchufes.
 
 ## Pendientes
 
