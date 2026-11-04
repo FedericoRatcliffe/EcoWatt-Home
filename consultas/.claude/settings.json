@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://192.168.1.7:8081/api/*)",
+      "Bash(curl -s \"http://192.168.1.7:8081/api/*)"
+    ],
+    "ask": [
+      "Bash(curl * -X *)",
+      "Bash(curl * -X*)",
+      "Bash(curl * --request*)",
+      "Bash(curl * -d *)",
+      "Bash(curl * --data*)",
+      "Bash(curl * --json*)",
+      "Bash(curl * -F *)",
+      "Bash(curl * --form*)",
+      "Bash(curl * -T *)",
+      "Bash(curl * --upload-file*)"
+    ]
+  }
+}

@@ -54,6 +54,9 @@ Domain  <-  Application  <-  Infrastructure  <-  API
 - **MockDevices** — consola: los cinco equipos Athom simulados (el medidor de tablero
   multicanal y los cuatro enchufes) y el modo `--backfill`. El canal del medidor es la suma de
   los enchufes mas una linea de base, asi el consumo no identificado nunca da negativo.
+- **consultas/** — no es codigo: es donde se abre Claude para preguntar por el consumo real
+  contra la API de produccion (`192.168.1.7:8081`), con permisos de solo lectura propios. Si
+  cambia un endpoint o un DTO que la consulta usa, actualiza su `CLAUDE.md`.
 
 Donde vive la logica que importa:
 
