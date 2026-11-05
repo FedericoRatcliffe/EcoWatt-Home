@@ -351,6 +351,39 @@ de la Zapatilla Fede. El detalle tecnico esta en el README, "Dejarlo andando".
 - La mediana de 14 noches del consumo base va a ir absorbiendo el cambio de a poco: una suba de
   ~30 W en "no identificado" desde esta noche es el servidor, no un aparato nuevo.
 
+## 05/11/2026 - Primera noche con el servidor y la PC apagada
+
+**Condiciones:** primera noche entera con el servidor casero prendido (enchufe sin medir) y la
+PC de escritorio suspendida desde las 01:50, con la tele apagada con el control. Segunda noche
+con el monitor del DVR apagado. Sin huecos de 18:00 a 08:40. Tramo de 02:00 a 06:00, contra la
+noche anterior:
+
+| Equipo | 03->04/11 | 04->05/11 |
+|---|---|---|
+| **Casa entera** | 166 W (minimo 86) | 171 W (minimo 86) |
+| Zapatilla Fede | 32 W | **3-4 W** |
+| Zapatilla Andy 1 | 25 W | 40 W (28 W fijos; alguien la uso de 03:40 a 04:29, ~110 W) |
+| Zapatilla Paula | 8 W | 8 W |
+| Heladera | 60 W | 49 W (los dos tramos con un descongelado adentro) |
+| No identificado, mediana | 32 W | **58 W** |
+
+**Hallazgos:**
+
+- **El servidor gasta ~26 W reales**, no 30-40: la mediana del no identificado subio de 32 a
+  58 W y el percentil 10 de 24 a 51 W. Son ~18,7 kWh y ~$9.600 por ciclo (simulador, al
+  precio del tercer tramo), ~$117.000 por anio.
+- **La PC suspendida y la tele apagada dejan la Zapatilla Fede en 3-4 W.** Con la tele
+  prendida en "No hay senal" serian ~35 W: la Sony KDL-40HX752 no se apaga sola por HDMI
+  (probado el 04/11 con "Control de energia de la PC"), hay que apagarla con el control.
+- **De noche, servidor y PC se compensan** (+26 W contra -28 W). En el dia entero no del todo:
+  el servidor suma 26 W las 24 h y la PC solo ahorra las horas que queda apagada, asi que el
+  saldo es de unos +0,2-0,3 kWh por dia si la PC se usa 10-14 h.
+- **Andy 1 confirma el ahorro del monitor del DVR:** 28 W fijos de noche y 22 W desde las 05:49,
+  cuando se apaga el infrarrojo de las camaras.
+- **La heladera descongela una vez por dia:** 04/11 a las 03:40 y 05/11 a las 01:49, ~22 h de
+  diferencia. El 04/11 entero gasto 0,81 kWh: ~24 kWh por ciclo, en linea con la estimacion.
+- **La hora mas baja de la casa fue 103 W**, la mas baja medida (antes 111-147 W).
+
 ## Pendientes
 
 El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan-de-mediciones.md).
@@ -363,5 +396,5 @@ El metodo y el detalle de cada experimento estan en [plan-de-mediciones.md](plan
 - [x] Experimento: verificar que la Zapatilla Fede lea el consumo de los Adam Audio T8V
   (30/10: lee bien, los monitores consumen muy poco).
 - [ ] Revisar si el adaptador de los T8V conecta la tierra.
-- [ ] Medir el consumo real del servidor casero: comparar el "no identificado" de las noches
-  antes y despues del 04/11, o enchufarlo un rato en una zapatilla medida.
+- [x] Medir el consumo real del servidor casero: 05/11, ~26 W por la suba del no identificado
+  de noche. Para el numero exacto, enchufarlo un rato en una zapatilla medida.
