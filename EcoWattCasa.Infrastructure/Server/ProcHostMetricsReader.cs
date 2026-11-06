@@ -33,6 +33,11 @@ public sealed class ProcHostMetricsReader(ILogger<ProcHostMetricsReader> logger)
             var uptime = ParseUptime(File.ReadAllText("/proc/uptime"));
             var disk = new DriveInfo("/");
 
+            // Como df: ext4 le reserva a root un 5 % que nadie mas puede usar. Contado como
+            // ocupado, el disco del servidor daria 6 % con 12 GB de 915; el total es lo usado mas
+            // lo disponible.
+            var diskUsed = disk.TotalSize - disk.TotalFreeSpace;
+
             return new HostMetrics(
                 CpuPercent(),
                 Environment.ProcessorCount,
@@ -43,7 +48,7 @@ public sealed class ProcHostMetricsReader(ILogger<ProcHostMetricsReader> logger)
                 memory.AvailableBytes,
                 memory.SwapTotalBytes,
                 memory.SwapFreeBytes,
-                disk.TotalSize,
+                diskUsed + disk.AvailableFreeSpace,
                 disk.AvailableFreeSpace,
                 uptime);
         }
