@@ -1,6 +1,7 @@
 using EcoWattCasa.Application.Alerts;
 using EcoWattCasa.Application.Billing;
 using EcoWattCasa.Application.Common;
+using EcoWattCasa.Application.Server;
 using EcoWattCasa.Application.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<AlertService>();
         services.AddScoped<GoalService>();
         services.AddScoped<InsightsService>();
+        services.AddScoped<ServerStatusService>();
 
         if (configuration is not null)
             services.Configure<AlertThresholds>(configuration.GetSection(AlertThresholds.SectionName));

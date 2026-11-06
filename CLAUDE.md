@@ -23,7 +23,7 @@ Postgres (cubre el ciclo actual y el anterior, que es lo que la comparacion nece
 
 ```bash
 dotnet build                                               # solucion entera (EcoWattCasa.slnx)
-dotnet test EcoWattCasa.Tests                              # 316 tests, ~250 ms, sin base ni red
+dotnet test EcoWattCasa.Tests                              # 347 tests, ~350 ms, sin base ni red
 cd ecowatt-frontend && npx ng test --watch=false            # smoke del dashboard (vitest + jsdom)
 docker compose --profile mock up -d --build                 # todo en Docker, frontend en :8081
 
@@ -47,8 +47,14 @@ README, "Dejarlo andando", tiene el detalle. Lo que importa al trabajar aca:
   en el servidor.
 - **Una migracion nueva corre sola en produccion** al arrancar la API despues del deploy. El
   deploy hace un backup antes, pero una migracion destructiva merece pensarse dos veces.
-- **Los `.sh` van con LF** (`.gitattributes`): corren en Linux. El deploy exporta con
+- **Los `.sh` y `.py` van con LF** (`.gitattributes`): corren en Linux. El deploy exporta con
   `core.autocrlf=false` por lo mismo.
+- **El crontab del servidor lo escribe el deploy** (backup a las 3:30 y `ecowatt-status.py`
+  cada minuto): saca esas dos lineas y las vuelve a poner. Una linea de cron nueva va ahi, no a
+  mano en el servidor.
+- **La API no tiene el socket de Docker, a proposito.** La pantalla "Servidor" lee CPU y
+  memoria de `/proc` y lo demas (contenedores, SMART, backups) de un JSON que deja el script del
+  host. Con el socket, una falla en una API sin autenticacion seria root en el servidor.
 
 ## Arquitectura
 
@@ -93,6 +99,8 @@ Donde vive la logica que importa:
 | `Application/Common/SavingsSimulator.cs` | "Cuanto ahorro si...": la factura del ciclo armada dos veces, con y sin el cambio |
 | `Application/Common/BillCheck.cs` | Factura real contra lo medido, sin juzgar al medidor por un periodo medido a medias |
 | `Application/Common/WeeklyProfile.cs` | Semana tipica dia x hora, y dias habiles contra fin de semana |
+| `Application/Server/ServerHealth.cs` | Las reglas de la pantalla "Servidor": disco, memoria, contenedores, SMART, backups, rollup, broker |
+| `deploy/ecowatt-status.py` | Lo que la API no ve desde su contenedor (contenedores, SMART, backups), cada minuto a un JSON |
 | `Application/Alerts/AlertNotificationTracker.cs` | Que alerta mandar por Telegram: una vez al aparecer, otra al resolverse |
 
 ## Convenciones

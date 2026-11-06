@@ -133,6 +133,7 @@ Dos cosas que **no** se copiaron, a propósito:
 | GET | `/api/alerts` | Alertas vigentes: cruce de tramo, dispositivos mudos, proyección alta, objetivo de factura, suba del consumo base |
 | GET | `/api/goal` | Objetivo de factura por ciclo, los kWh que permite y lo que sale la factura sin consumir nada |
 | PUT · DELETE | `/api/goal` | `{ "amount": 60000 }` fija el objetivo; `DELETE` lo quita |
+| GET | `/api/server/status` | Estado del servidor: CPU, memoria, disco, contenedores, SMART, backups, base y broker, con los problemas ya evaluados |
 | — | `/hubs/energy` | Hub SignalR: eventos `readingReceived`, `deviceRegistered`, `relayStateChanged` |
 
 ---
@@ -543,7 +544,7 @@ reinicia con cada actualización de Windows y está colgada de una zapatilla med
 | Red | Cable al router, **IP 192.168.1.7** reservada por DHCP |
 | Acceso | `ssh fratcliffe@192.168.1.7`, con llave desde la PC de escritorio |
 | Dashboard | **http://192.168.1.7:8081**, desde cualquier equipo de la casa |
-| Consumo | Unos 30-40 W fijos, en un enchufe sin medir: cae en "consumo no identificado" y sube el consumo base |
+| Consumo | Unos 26 W fijos (medido el 5/11 por la suba del no identificado de noche), en un enchufe sin medir: cae en "consumo no identificado" y sube el consumo base |
 
 Corren los tres servicios de `docker-compose.yml` (`postgres`, `api`, `frontend`) con
 [`deploy/docker-compose.server.yml`](deploy/docker-compose.server.yml) encima, copiado como
@@ -608,6 +609,29 @@ cd ~/ecowatt && docker compose -p ecowatt stop api
 docker exec -i ecowatt-postgres pg_restore -U ecowatt -d ecowatt --clean --if-exists --no-owner < ~/backups/ecowatt-AAAA-MM-DD.dump
 docker compose -p ecowatt start api
 ```
+
+### Estado del servidor
+
+La pantalla **Servidor** del dashboard (`/servidor`) muestra si todo anda, refrescándose cada
+5 segundos: CPU, memoria, disco y swap; los tres contenedores con su estado, reinicios, CPU y
+memoria; el SMART del disco; el último backup; y lo que ve la propia API (base, broker MQTT,
+última lectura de cada equipo). Arriba, un resumen en palabras y la lista de lo que conviene
+revisar, con las mismas severidades que las alertas del dashboard.
+
+Los datos salen de dos lados, y **la API no tiene acceso a Docker a propósito**:
+
+- **CPU, memoria, carga, disco y uptime los lee la API de `/proc`, en vivo.** Desde un
+  contenedor sin lxcfs, `/proc` muestra la máquina entera, así que no hace falta montar nada.
+- **Contenedores, SMART y backups los junta [`deploy/ecowatt-status.py`](deploy/ecowatt-status.py)**
+  cada minuto (cron) y los deja en `~/ecowatt-status/status.json`, que la API monta de sólo
+  lectura. La alternativa habitual, montarle a la API el socket de Docker, equivale a darle
+  root sobre el servidor, y la API no tiene autenticación. Así, lo peor que puede hacer es leer
+  un archivo.
+
+Las dos líneas de cron (backup y estado) las instala `deploy.ps1` en cada deploy, sin
+duplicarlas. Si el reporte tiene más de 5 minutos, la pantalla avisa que cron o el script
+dejaron de correr. En la PC de desarrollo no hay `/proc` ni script, y la pantalla lo dice en vez
+de mostrar un error.
 
 ### Si algo no anda
 
@@ -730,7 +754,7 @@ La API corre `Database.Migrate()` al arrancar, así que no hace falta aplicarlas
 ## Tests
 
 ```bash
-dotnet test EcoWattCasa.Tests                    # 280 tests, sin base ni broker
+dotnet test EcoWattCasa.Tests                    # 347 tests, sin base ni broker
 cd ecowatt-frontend && npx ng test --watch=false  # smoke del dashboard (vitest + jsdom)
 ```
 
@@ -749,6 +773,8 @@ cooperativa redondea a pesos enteros Cap.Rem.L.B.T. y Cap.Inv.Bienes de Uso.
 | `Common/EnergyMathTests` | Contador reseteado, delta imposible, sin acumulado, una sola muestra |
 | `Common/BillingCyclesTests` | Ciclo anclado en la última lectura, avance de 30 días, ventanas UTC de un día local |
 | `Billing/GoalPlannerTests` | Objetivo en pesos → kWh: el total de una factura real devuelve sus kWh, el presupuesto nunca pasa el objetivo aun con dos cuadros en el período, objetivo por debajo de los cargos fijos |
+| `Server/ServerHealthTests` | El servidor real sano no da ningún chequeo; después, una cosa rota por vez: disco, memoria, swap, carga, contenedor parado o reiniciado, SMART, backup viejo o fallado, reporte viejo, base, broker, equipos mudos |
+| `Server/HostProbeParsingTests` | `/proc/stat`, `/proc/meminfo`, `loadavg` y `uptime` copiados del servidor, y el JSON real de `ecowatt-status.py`: el contrato entre el script y la API |
 | `Alerts/AlertRulesTests` | Cruce de tramo con los precios reales y su fecha estimada, dispositivo mudo vs. broker caído, umbrales configurables, objetivo de factura en riesgo / pasado / imposible |
 
 La suite se verificó con **mutation testing**: revertir el reparto de tramos a kWh decimales

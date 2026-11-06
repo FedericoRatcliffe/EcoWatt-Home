@@ -1,2 +1,4 @@
-# Los scripts de shell corren en el servidor Linux: con CRLF bash falla en la primera linea.
+# Los scripts corren en el servidor Linux: con CRLF bash falla en la primera linea, y el shebang
+# de un .py busca "python3\r".
 *.sh text eol=lf
+*.py text eol=lf

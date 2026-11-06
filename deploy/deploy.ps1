@@ -31,7 +31,17 @@ tar -x -C ~/ecowatt.new -f /tmp/ecowatt-deploy.tar && rm /tmp/ecowatt-deploy.tar
 cd ~/ecowatt.new
 echo $commit > .deployed-commit
 cp deploy/docker-compose.server.yml docker-compose.override.yml
-mkdir -p ~/bin && install -m 755 deploy/ecowatt-backup.sh ~/bin/ecowatt-backup.sh
+mkdir -p ~/bin ~/ecowatt-status
+install -m 755 deploy/ecowatt-backup.sh ~/bin/ecowatt-backup.sh
+install -m 755 deploy/ecowatt-status.py ~/bin/ecowatt-status.py
+
+# Las dos lineas de cron las escribe el deploy: se sacan las que haya y se ponen de nuevo, asi
+# correrlo dos veces no las duplica. El || true es porque grep sin nada que devolver sale con 1,
+# y con set -e eso cortaria el bloque y dejaria el crontab vacio.
+{ crontab -l 2>/dev/null | grep -v -e ecowatt-backup.sh -e ecowatt-status.py || true
+  echo '30 3 * * * `$HOME/bin/ecowatt-backup.sh >> `$HOME/backups/backup.log 2>&1'
+  echo '* * * * * `$HOME/bin/ecowatt-status.py > /dev/null 2>&1'
+} | crontab -
 
 echo '== backup'
 ~/bin/ecowatt-backup.sh
@@ -47,7 +57,7 @@ cd ~/ecowatt && docker compose -p ecowatt up -d --remove-orphans
 docker image prune -f > /dev/null
 
 for i in `$(seq 1 40); do
-  curl -sf -m 3 localhost:5080/api/devices > /dev/null && echo "== ok: API arriba con $commit" && exit 0
+  curl -sf -m 3 localhost:5080/api/devices > /dev/null && ~/bin/ecowatt-status.py && echo "== ok: API arriba con $commit" && exit 0
   sleep 3
 done
 echo '== la API no respondio en 2 minutos'

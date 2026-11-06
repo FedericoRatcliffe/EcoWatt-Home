@@ -42,6 +42,7 @@ API ya estan bien armados: usalos tal cual. Para "cuanto cuesta un kWh mas" esta
 | Tarifa vigente | `GET /tariff` | `blocks[]` (tramos), `surcharges[]`, `periodCharges[]` |
 | Facturas importadas | `GET /tariff/bills` | |
 | Objetivo de factura | `GET /goal` | `amount` (pesos), `kwhBudget` |
+| Estado del servidor | `GET /server/status` | `overall` (Ok/Warning/Critical), `checks[]`, `system`, `report.containers[]`, `report.backups` |
 
 Simulador: `watts` positivo = se deja de consumir, negativo = se suma un aparato. Las horas son
 locales de 0 a 23; `fromHour` igual a `toHour` es el dia entero, y la franja puede cruzar la
@@ -80,7 +81,7 @@ Equipos (ids estables; confirmalos con `GET /devices` si algo no cierra):
   vacia. Decilo en vez de inventar.
 - Un hueco de unos minutos el 04/11/2026 entre 11:42 y 11:52 fue la mudanza al servidor.
 - **Desde el 04/11/2026 hay un servidor prendido 24/7** (PC vieja AMD A4-7300 que corre
-  EcoWatt) en un enchufe sin medir: su consumo, unos 30-40 W fijos, cae en "no identificado" y
+  EcoWatt) en un enchufe sin medir: su consumo, unos 26 W fijos (medido el 05/11/2026), cae en "no identificado" y
   sube el consumo base. No es un consumo raro. Desde ese dia la PC de Fede puede quedar
   apagada de noche, asi que ese aumento puede compensarse en la Zapatilla Fede.
 - Referencia de consumo base: ~140-150 W con la casa sin uso, ~100 kWh por ciclo, mas de la

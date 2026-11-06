@@ -1,0 +1,230 @@
+@use 'variables' as *;
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.meta,
+.small {
+  font-size: 0.78rem;
+}
+
+.warn-text {
+  color: $red-700;
+  font-weight: 700;
+}
+
+// ================================
+// Estado general
+// ================================
+// La frase dice el estado; el punto de color solo lo acompana.
+
+.overall {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1rem;
+  background: $surface;
+  border: 1px solid $border-default;
+  border-left-width: 4px;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-soft;
+  font-size: 0.95rem;
+
+  &__dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &.ok {
+    border-left-color: $green;
+
+    .overall__dot {
+      background: $green;
+    }
+  }
+
+  &.warning {
+    border-left-color: $amber;
+
+    .overall__dot {
+      background: $amber;
+    }
+  }
+
+  &.critical {
+    border-left-color: $red-500;
+
+    .overall__dot {
+      background: $red-500;
+    }
+  }
+}
+
+// ================================
+// Chequeos (mismo lenguaje que las alertas del dashboard)
+// ================================
+
+.alerts {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  background: $surface;
+  border: 1px solid $border-soft;
+  border-left-width: 3px;
+  border-radius: $radius-md;
+  box-shadow: $shadow-soft;
+
+  &__badge {
+    flex-shrink: 0;
+    padding: 0.1rem 0.5rem;
+    border-radius: $radius-pill;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__body {
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: $text-strong;
+  }
+
+  &__detail {
+    margin: 0.15rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: $text-soft;
+  }
+
+  &.critical {
+    border-left-color: $red-500;
+
+    .alert__badge {
+      background: rgba($red-500, 0.12);
+      color: $red-700;
+    }
+  }
+
+  &.warning {
+    border-left-color: $amber;
+
+    .alert__badge {
+      background: rgba($amber, 0.15);
+      color: $amber-800;
+    }
+  }
+
+  &.info {
+    border-left-color: $slate-400;
+
+    .alert__badge {
+      background: rgba($blue-600, 0.1);
+      color: $blue-700;
+    }
+  }
+}
+
+// ================================
+// Medidores de uso
+// ================================
+
+.meter .stat-value {
+  margin-bottom: 0.65rem;
+}
+
+.bar {
+  height: 0.45rem;
+  border-radius: $radius-pill;
+  background: $chart-series-soft;
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    max-width: 100%;
+    border-radius: $radius-pill;
+    background: $grad-bar;
+    transition: width $t-slow;
+  }
+
+  &.warning span {
+    background: $amber;
+  }
+
+  &.critical span {
+    background: $red-500;
+  }
+}
+
+// ================================
+// Pastillas de estado y datos sueltos
+// ================================
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: $radius-pill;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+
+  &.ok {
+    background: rgba($green, 0.15);
+    color: $green-700;
+  }
+
+  &.warning {
+    background: rgba($amber, 0.15);
+    color: $amber-800;
+  }
+
+  &.critical {
+    background: rgba($red-500, 0.12);
+    color: $red-700;
+  }
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 1.25rem;
+  margin: 0;
+  font-size: 0.84rem;
+
+  dt {
+    color: $text-soft;
+  }
+
+  dd {
+    margin: 0;
+    color: $text-strong;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.grid.halves {
+  margin-top: 1rem;
+}

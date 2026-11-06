@@ -18,6 +18,7 @@ import {
   MonthlyPoint,
   PeriodDashboard,
   RelayCommand,
+  ServerStatus,
   Simulation,
   SimulationRequest,
   TariffInput,
@@ -183,5 +184,10 @@ export class EcowattApi {
     const form = new FormData();
     form.append('file', file, file.name);
     return this.http.post<BillImportResult>('/api/tariff/import', form);
+  }
+
+  /** CPU, memoria, contenedores, disco, backups, base y broker, con los problemas evaluados. */
+  getServerStatus(): Observable<ServerStatus> {
+    return this.http.get<ServerStatus>('/api/server/status');
   }
 }

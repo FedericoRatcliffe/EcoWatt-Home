@@ -16,5 +16,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
     title: 'Configuracion | EcoWatt Casa',
   },
+  {
+    path: 'servidor',
+    loadComponent: () => import('./features/server/server').then((m) => m.Server),
+    title: 'Servidor | EcoWatt Casa',
+  },
   { path: '**', redirectTo: '' },
 ];

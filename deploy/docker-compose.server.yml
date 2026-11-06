@@ -20,6 +20,13 @@ services:
   api:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      Server__ReportPath: /host-status/status.json
+    # Lo que ve la pantalla "Servidor" de los contenedores, el disco y los backups: lo escribe
+    # ~/bin/ecowatt-status.py cada minuto. Se monta la carpeta y no el archivo porque el script
+    # lo reemplaza con un rename, y un bind mount de archivo se queda con el inodo viejo. Solo
+    # lectura: la API no tiene por que escribir en el host.
+    volumes:
+      - ${HOME}/ecowatt-status:/host-status:ro
     # Secretos fuera del repo y fuera de ~/ecowatt (deploy.ps1 reemplaza esa carpeta entera).
     # Por ahora solo el bot de Telegram: Notifications__TelegramBotToken y
     # Notifications__TelegramChatId. Si el archivo no existe, los avisos quedan apagados.

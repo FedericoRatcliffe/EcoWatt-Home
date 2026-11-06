@@ -438,3 +438,106 @@ export interface WeeklyProfile {
   weekdayKwh: number | null;
   weekendKwh: number | null;
 }
+
+// ---------- Estado del servidor ----------
+
+export type ServerOverall = 'Ok' | 'Warning' | 'Critical';
+
+/** CPU, memoria y disco de la maquina entera, no del contenedor. */
+export interface ServerSystem {
+  /** 100 = todos los nucleos. null si no se pudo muestrear. */
+  cpuPercent: number | null;
+  cpuCores: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  memoryTotalBytes: number;
+  memoryUsedBytes: number;
+  memoryUsedPercent: number;
+  swapTotalBytes: number;
+  swapUsedBytes: number;
+  swapUsedPercent: number | null;
+  diskTotalBytes: number;
+  diskUsedBytes: number;
+  diskUsedPercent: number;
+  uptimeSeconds: number;
+}
+
+export interface ServerContainer {
+  name: string;
+  /** El de Docker: running, exited, restarting... */
+  state: string;
+  /** healthy / unhealthy / starting; null sin healthcheck. */
+  health: string | null;
+  startedUtc: string | null;
+  restartCount: number;
+  /** Sobre toda la maquina, como el CPU del sistema. */
+  cpuPercent: number | null;
+  memoryBytes: number | null;
+  image: string | null;
+}
+
+export interface ServerDiskHealth {
+  device: string;
+  passed: boolean | null;
+  temperatureC: number | null;
+  powerOnHours: number | null;
+  reallocatedSectors: number | null;
+  pendingSectors: number | null;
+  uncorrectableSectors: number | null;
+}
+
+export interface ServerBackups {
+  count: number;
+  lastFile: string | null;
+  lastUtc: string | null;
+  lastSizeBytes: number | null;
+  lastLogLine: string | null;
+  lastLogOk: boolean | null;
+}
+
+/** Lo que junta el script del host cada minuto. */
+export interface ServerReport {
+  generatedUtc: string;
+  osName: string | null;
+  deployedCommit: string | null;
+  rebootRequired: boolean;
+  containers: ServerContainer[];
+  disk: ServerDiskHealth | null;
+  backups: ServerBackups | null;
+  errors: string[];
+}
+
+export interface ServerDevice {
+  id: string;
+  name: string;
+  lastSeenUtc: string | null;
+  silent: boolean;
+}
+
+export interface ServerApp {
+  apiUptimeSeconds: number;
+  apiMemoryBytes: number;
+  databaseSizeBytes: number | null;
+  rawReadingsEstimate: number | null;
+  lastRolledUpHourUtc: string | null;
+  mqtt: {
+    listenerConnected: boolean;
+    /** null con un broker externo. */
+    connectedClients: number | null;
+    clientIds: string[];
+  };
+  devices: ServerDevice[];
+}
+
+export interface ServerStatus {
+  generatedUtc: string;
+  overall: ServerOverall;
+  /** Lo mas grave primero; mismas severidades que las alertas del dashboard. */
+  checks: Alert[];
+  /** null donde no hay /proc (desarrollo en Windows). */
+  system: ServerSystem | null;
+  /** null si el script del host no dejo reporte. */
+  report: ServerReport | null;
+  app: ServerApp;
+}

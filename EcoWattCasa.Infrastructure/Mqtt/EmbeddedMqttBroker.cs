@@ -80,6 +80,16 @@ public sealed class EmbeddedMqttBroker(
         await DisposeServerAsync();
     }
 
+    /// <summary>Quien esta conectado ahora: los Tasmota y la propia API. null si el broker no arranco.</summary>
+    public async Task<IReadOnlyList<string>?> GetClientIdsAsync()
+    {
+        if (_server is not { IsStarted: true } server)
+            return null;
+
+        var clients = await server.GetClientsAsync();
+        return clients.Select(c => c.Id).Order(StringComparer.Ordinal).ToList();
+    }
+
     /// <summary>
     /// Si hay credenciales configuradas se exigen; si no, se acepta cualquier cliente. La
     /// segunda opcion es la razonable en una LAN domestica y es lo que hace Mosquitto con

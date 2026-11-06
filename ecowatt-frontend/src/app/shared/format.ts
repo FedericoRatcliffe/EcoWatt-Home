@@ -98,3 +98,40 @@ export function todayIso(): string {
     String(now.getDate()).padStart(2, '0'),
   ].join('-');
 }
+
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+/** "2,2 MB", "915 GB". Unidades de 1024, como las muestra Linux. */
+export function bytes(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '--';
+  let v = value;
+  let unit = 0;
+  while (Math.abs(v) >= 1024 && unit < BYTE_UNITS.length - 1) {
+    v /= 1024;
+    unit++;
+  }
+  const digits = unit === 0 || v >= 100 ? 0 : 1;
+  return `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: digits }).format(v)} ${BYTE_UNITS[unit]}`;
+}
+
+/** Una duracion en su unidad mas grande que importe: "45 s", "12 min", "5 h 20 min", "2 d 3 h". */
+export function duration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined) return '--';
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return m % 60 ? `${h} h ${m % 60} min` : `${h} h`;
+  const d = Math.floor(h / 24);
+  return h % 24 ? `${d} d ${h % 24} h` : `${d} d`;
+}
+
+/**
+ * "hace 12 s" respecto de otro instante. El de referencia lo pone quien llama (la hora del
+ * servidor en la pantalla de estado), asi un reloj de la PC corrido no inventa demoras.
+ */
+export function ago(iso: string | null | undefined, referenceIso: string): string {
+  if (!iso) return 'nunca';
+  return `hace ${duration((Date.parse(referenceIso) - Date.parse(iso)) / 1000)}`;
+}

@@ -1,10 +1,12 @@
 using EcoWattCasa.Application.Billing;
+using EcoWattCasa.Application.Server;
 using EcoWattCasa.Domain.Interfaces;
 using EcoWattCasa.Infrastructure.Billing;
 using EcoWattCasa.Infrastructure.Mqtt;
 using EcoWattCasa.Infrastructure.Notifications;
 using EcoWattCasa.Infrastructure.Persistence;
 using EcoWattCasa.Infrastructure.Repositories;
+using EcoWattCasa.Infrastructure.Server;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,13 +42,25 @@ public static class DependencyInjection
         services.AddScoped<IDeviceCommandPublisher, MqttCommandPublisher>();
 
         // El broker embebido se registra primero: los hosted services arrancan en orden y el
-        // listener necesita que el puerto ya este escuchando cuando intente conectarse.
+        // listener necesita que el puerto ya este escuchando cuando intente conectarse. Va
+        // tambien como singleton para que el estado del servidor vea la misma instancia.
         if (configuration.GetValue($"{MqttOptions.SectionName}:Embedded", false))
-            services.AddHostedService<EmbeddedMqttBroker>();
+        {
+            services.AddSingleton<EmbeddedMqttBroker>();
+            services.AddHostedService(sp => sp.GetRequiredService<EmbeddedMqttBroker>());
+        }
 
         // Se puede apagar con "Mqtt:Enabled": false para levantar solo la API sin MQTT.
         if (configuration.GetValue($"{MqttOptions.SectionName}:Enabled", true))
             services.AddHostedService<MqttListenerService>();
+
+        services.Configure<ServerReportOptions>(configuration.GetSection(ServerReportOptions.SectionName));
+        services.AddSingleton<IHostMetricsReader, ProcHostMetricsReader>();
+        services.AddSingleton<IHostReportReader, JsonHostReportReader>();
+        services.AddScoped<IDatabaseStatsReader, PostgresDatabaseStatsReader>();
+        services.AddSingleton<IMqttStatusReader>(sp => new MqttStatusReader(
+            sp.GetRequiredService<MqttConnection>(),
+            sp.GetService<EmbeddedMqttBroker>()));
 
         var notifications = configuration.GetSection(NotificationOptions.SectionName);
         services.Configure<NotificationOptions>(notifications);

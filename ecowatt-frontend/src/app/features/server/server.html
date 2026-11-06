@@ -1,0 +1,290 @@
+<div class="shell">
+  <div class="page-head">
+    <h1>Servidor</h1>
+    @if (status(); as s) {
+      <span class="muted meta">
+        @if (s.report?.osName) {
+          {{ s.report?.osName }} &middot;
+        }
+        @if (s.report?.deployedCommit) {
+          version <code>{{ s.report?.deployedCommit }}</code> &middot;
+        }
+        se actualiza cada 5 s
+      </span>
+    }
+  </div>
+
+  @if (error()) {
+    <div class="error">{{ error() }}</div>
+  }
+
+  @if (status(); as s) {
+    <!-- ---------- Estado general ---------- -->
+    <div class="overall" [class]="s.overall.toLowerCase()">
+      <span class="overall__dot" aria-hidden="true"></span>
+      <strong>{{ overallText() }}</strong>
+      @if (problems().length > 0) {
+        <span class="muted">
+          {{ problems().length }} {{ problems().length === 1 ? 'cosa' : 'cosas' }} para revisar
+        </span>
+      }
+    </div>
+
+    @if (problems().length > 0 || notes().length > 0) {
+      <section class="alerts">
+        @for (check of problems(); track check.code + check.title) {
+          <div class="alert" [class]="check.severity.toLowerCase()">
+            <span class="alert__badge">{{ severityLabel(check.severity) }}</span>
+            <div class="alert__body">
+              <p class="alert__title">{{ check.title }}</p>
+              <p class="alert__detail">{{ check.detail }}</p>
+            </div>
+          </div>
+        }
+        @for (check of notes(); track check.code + check.title) {
+          <div class="alert info">
+            <span class="alert__badge">Info</span>
+            <div class="alert__body">
+              <p class="alert__title">{{ check.title }}</p>
+              <p class="alert__detail">{{ check.detail }}</p>
+            </div>
+          </div>
+        }
+      </section>
+    }
+
+    <!-- ---------- Sistema ---------- -->
+    <div class="section-title"><h2>Sistema</h2></div>
+
+    @if (s.system; as sys) {
+      <div class="grid cards">
+        <div class="card meter">
+          <div class="stat-label">CPU</div>
+          <div class="stat-value">{{ sys.cpuPercent === null ? '--' : percent(sys.cpuPercent, 0) }}</div>
+          <div class="bar" [class]="level(sys.cpuPercent, 80, 95)">
+            <span [style.width.%]="sys.cpuPercent ?? 0"></span>
+          </div>
+          <div class="stat-sub">{{ sys.cpuCores }} nucleos &middot; carga {{ loads() }}</div>
+        </div>
+
+        <div class="card meter">
+          <div class="stat-label">Memoria</div>
+          <div class="stat-value">{{ percent(sys.memoryUsedPercent, 0) }}</div>
+          <div class="bar" [class]="level(sys.memoryUsedPercent, 90, 95)">
+            <span [style.width.%]="sys.memoryUsedPercent"></span>
+          </div>
+          <div class="stat-sub">{{ bytes(sys.memoryUsedBytes) }} de {{ bytes(sys.memoryTotalBytes) }}</div>
+        </div>
+
+        <div class="card meter">
+          <div class="stat-label">Disco</div>
+          <div class="stat-value">{{ percent(sys.diskUsedPercent, 0) }}</div>
+          <div class="bar" [class]="level(sys.diskUsedPercent, 80, 90)">
+            <span [style.width.%]="sys.diskUsedPercent"></span>
+          </div>
+          <div class="stat-sub">{{ bytes(sys.diskUsedBytes) }} de {{ bytes(sys.diskTotalBytes) }}</div>
+        </div>
+
+        <div class="card meter">
+          <div class="stat-label">Swap</div>
+          <div class="stat-value">{{ sys.swapUsedPercent === null ? '--' : percent(sys.swapUsedPercent, 0) }}</div>
+          <div class="bar" [class]="level(sys.swapUsedPercent, 50, 80)">
+            <span [style.width.%]="sys.swapUsedPercent ?? 0"></span>
+          </div>
+          <div class="stat-sub">{{ bytes(sys.swapUsedBytes) }} de {{ bytes(sys.swapTotalBytes) }}</div>
+        </div>
+
+        <div class="card meter">
+          <div class="stat-label">Prendido hace</div>
+          <div class="stat-value">{{ duration(sys.uptimeSeconds) }}</div>
+          <div class="stat-sub">
+            @if (s.report?.rebootRequired) {
+              pide reiniciar por una actualizacion
+            } @else {
+              sin reinicio pendiente
+            }
+          </div>
+        </div>
+      </div>
+    } @else {
+      <div class="card empty">CPU, memoria y disco solo se ven con la API corriendo en el servidor Linux.</div>
+    }
+
+    <!-- ---------- Contenedores ---------- -->
+    <div class="section-title">
+      <h2>Contenedores</h2>
+      @if (s.report) {
+        <span class="muted small">datos de {{ ago(s.report.generatedUtc) }}</span>
+      }
+    </div>
+
+    @if (s.report && s.report.containers.length > 0) {
+      <div class="card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Contenedor</th>
+                <th>Estado</th>
+                <th>Arriba hace</th>
+                <th class="num">Reinicios</th>
+                <th class="num">CPU</th>
+                <th class="num">Memoria</th>
+                <th>Imagen</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of s.report.containers; track c.name) {
+                <tr>
+                  <td><strong>{{ c.name }}</strong></td>
+                  <td>
+                    <span class="pill" [class]="containerState(c).level">{{ containerState(c).text }}</span>
+                  </td>
+                  <td>{{ c.state === 'running' ? since(c.startedUtc) : '--' }}</td>
+                  <td class="num" [class.warn-text]="c.restartCount > 0">{{ c.restartCount }}</td>
+                  <td class="num">{{ c.cpuPercent === null ? '--' : percent(c.cpuPercent) }}</td>
+                  <td class="num">{{ bytes(c.memoryBytes) }}</td>
+                  <td><code>{{ c.image }}</code></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    } @else {
+      <div class="card empty">
+        Sin datos de los contenedores: los junta el script del servidor (ecowatt-status.py) cada minuto.
+      </div>
+    }
+
+    <!-- ---------- Disco y backups ---------- -->
+    <div class="grid halves">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Disco</h2>
+            <span class="sub">autodiagnostico SMART{{ s.report?.disk ? ' de ' + s.report?.disk?.device : '' }}</span>
+          </div>
+          @if (s.report?.disk; as d) {
+            <span class="pill" [class]="d.passed === false ? 'critical' : 'ok'">
+              {{ yesNo(d.passed, 'sano', 'FALLA') }}
+            </span>
+          }
+        </div>
+
+        @if (s.report?.disk; as d) {
+          <dl class="facts">
+            <dt>Temperatura</dt>
+            <dd [class.warn-text]="(d.temperatureC ?? 0) >= 50">
+              {{ d.temperatureC === null ? '--' : d.temperatureC + ' grados' }}
+            </dd>
+            <dt>Horas encendido</dt>
+            <dd>{{ count(d.powerOnHours) }}</dd>
+            <dt>Sectores reasignados</dt>
+            <dd [class.warn-text]="(d.reallocatedSectors ?? 0) > 0">{{ count(d.reallocatedSectors) }}</dd>
+            <dt>Sectores pendientes</dt>
+            <dd [class.warn-text]="(d.pendingSectors ?? 0) > 0">{{ count(d.pendingSectors) }}</dd>
+            <dt>Sectores ilegibles</dt>
+            <dd [class.warn-text]="(d.uncorrectableSectors ?? 0) > 0">{{ count(d.uncorrectableSectors) }}</dd>
+          </dl>
+        } @else {
+          <p class="muted">Sin datos del disco.</p>
+        }
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Backups</h2>
+            <span class="sub">pg_dump diario a las 3:30, se guardan 30 dias</span>
+          </div>
+          @if (s.report?.backups; as b) {
+            <span class="pill" [class]="b.lastLogOk === false ? 'critical' : 'ok'">
+              {{ yesNo(b.lastLogOk, 'ok', 'fallo') }}
+            </span>
+          }
+        </div>
+
+        @if (s.report?.backups; as b) {
+          <dl class="facts">
+            <dt>Ultimo</dt>
+            <dd>{{ ago(b.lastUtc) }}</dd>
+            <dt>Archivo</dt>
+            <dd><code>{{ b.lastFile ?? '--' }}</code></dd>
+            <dt>Tamano</dt>
+            <dd>{{ bytes(b.lastSizeBytes) }}</dd>
+            <dt>Guardados</dt>
+            <dd>{{ b.count }}</dd>
+            <dt>Log</dt>
+            <dd><code>{{ b.lastLogLine ?? '--' }}</code></dd>
+          </dl>
+        } @else {
+          <p class="muted">Sin datos de los backups.</p>
+        }
+      </div>
+    </div>
+
+    <!-- ---------- EcoWatt ---------- -->
+    <div class="section-title"><h2>EcoWatt</h2></div>
+
+    <div class="grid halves">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>API, base y broker</h2>
+            <span class="sub">lo que ve la propia aplicacion</span>
+          </div>
+        </div>
+        <dl class="facts">
+          <dt>API arriba hace</dt>
+          <dd>{{ duration(s.app.apiUptimeSeconds) }}</dd>
+          <dt>Memoria de la API</dt>
+          <dd>{{ bytes(s.app.apiMemoryBytes) }}</dd>
+          <dt>Tamano de la base</dt>
+          <dd>{{ bytes(s.app.databaseSizeBytes) }}</dd>
+          <dt>Lecturas crudas</dt>
+          <dd>~{{ count(s.app.rawReadingsEstimate) }}</dd>
+          <dt>Ultima hora resumida</dt>
+          <dd>{{ ago(s.app.lastRolledUpHourUtc) }}</dd>
+          <dt>Telemetria MQTT</dt>
+          <dd [class.warn-text]="!s.app.mqtt.listenerConnected">
+            {{ s.app.mqtt.listenerConnected ? 'conectada' : 'desconectada' }}
+          </dd>
+          <dt>Clientes en el broker</dt>
+          <dd>
+            @if (s.app.mqtt.connectedClients === null) {
+              broker externo
+            } @else {
+              {{ s.app.mqtt.connectedClients }}
+              <span class="muted small">({{ s.app.mqtt.clientIds.join(', ') }})</span>
+            }
+          </dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Equipos</h2>
+            <span class="sub">ultima lectura recibida</span>
+          </div>
+          <span class="pill" [class]="silentCount() > 0 ? 'warning' : 'ok'">
+            {{ silentCount() > 0 ? silentCount() + ' sin reportar' : 'todos reportan' }}
+          </span>
+        </div>
+        <table>
+          <tbody>
+            @for (d of s.app.devices; track d.id) {
+              <tr>
+                <td>{{ d.name }}</td>
+                <td class="num" [class.warn-text]="d.silent">{{ ago(d.lastSeenUtc) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  } @else if (!error()) {
+    <div class="empty">Cargando...</div>
+  }
+</div>
